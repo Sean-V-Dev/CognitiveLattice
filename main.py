@@ -12,10 +12,6 @@ from utils.dictionary_manager import expand_dictionary, clean_input
 from encoder.text_to_image import encode_text_to_image
 from decoder.image_to_text import decode_image_to_text
 
-
-
-
-
 # === Load environment variables === #
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
