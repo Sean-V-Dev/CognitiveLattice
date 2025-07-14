@@ -4,8 +4,9 @@ import difflib
 
 # Third-party libraries
 import openai
-from PyPDF2 import PdfReader
+import pdfplumber
 from dotenv import load_dotenv
+
 
 # Local modules
 from utils.dictionary_manager import expand_dictionary, clean_input
@@ -31,13 +32,33 @@ def read_txt_file(file_path):
     return lines
 
 def read_pdf_file(file_path):
-    reader = PdfReader(file_path)
     lines = []
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            lines.extend([line.strip() for line in text.split('\n') if line.strip()])
+    with pdfplumber.open(file_path) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                lines.extend([line.strip() for line in text.split('\n') if line.strip()])
     return lines
+
+def sanitize_pdf(file_path, output_path="cleaned_input.txt"):
+    lines = []
+    with pdfplumber.open(file_path) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                lines.extend([line.strip() for line in text.split('\n') if line.strip()])
+    cleaned_text = "\n".join(lines)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(cleaned_text)
+
+def process_file(file_path):
+    if file_path.endswith(".pdf"):
+        sanitize_pdf(file_path, "cleaned_input.txt")
+        return read_txt_file("cleaned_input.txt")
+    elif file_path.endswith(".txt"):
+        return read_txt_file(file_path)
+    else:
+        raise ValueError("Unsupported file format. Use .txt or .pdf")
 
 # === GPT-powered summarizer ====#
 def summarize_chunk(chunk):
@@ -108,13 +129,10 @@ def search_memory(keyword):
         print("🚫 No relevant memory found.")
 
 # === Load content from file ====#
-file_path = "example.txt"
-if file_path.endswith(".txt"):
-    tasks = read_txt_file(file_path)
-elif file_path.endswith(".pdf"):
-    tasks = read_pdf_file(file_path)
-else:
-    raise ValueError("Unsupported file format. Use .txt or .pdf")
+file_path = "example.pdf"
+tasks = process_file(file_path)
+if not tasks:
+    raise ValueError("No tasks found in file.")
 
 # === Chunk and process ====#
 chunks = chunk_list(tasks, chunk_size=5)

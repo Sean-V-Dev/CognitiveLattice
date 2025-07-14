@@ -1,4 +1,4 @@
-✅ All terms matched correctly.
+All terms matched correctly.
 3. Question Three: Consider the code block.
 def greet(name):
 print("Hello, " + name + "!")
