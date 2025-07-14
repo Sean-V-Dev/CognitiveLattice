@@ -1,0 +1,2 @@
+- Keep emojis intact if used.
+- Punctuation at line endings (., ?, :, etc.) should survive encoding.

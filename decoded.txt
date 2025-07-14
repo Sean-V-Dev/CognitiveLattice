@@ -1,0 +1,32 @@
+== Exam Simulation ==
+
+1. Question One: What's the capital of France?
+    A) Berlin
+    B) Madrid
+    C) Paris ✅
+    D) Rome
+
+2. Question Two: Match the following items.
+
+        Term 1   →    Definition A
+        Term 2   →    Definition B
+        Term 3   →    Definition C
+
+        ✅ All terms matched correctly.
+
+3. Question Three: Consider the code block.
+
+        def greet(name):
+            print("Hello, " + name + "!")
+
+    Output if name = "Sean":
+
+        Hello, Sean!
+
+— End of Section —
+
+🧠 Tips:
+- ✅ Always verify line spacing.
+- Indentation matters (tabs vs. spaces).
+- Keep emojis intact if used.
+- Punctuation at line endings (., ?, :, etc.) should survive encoding.

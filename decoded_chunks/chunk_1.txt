@@ -1,0 +1,5 @@
+== Exam Simulation ==
+1. Question One: What's the capital of France?
+A) Berlin
+B) Madrid
+C) Paris ✅
