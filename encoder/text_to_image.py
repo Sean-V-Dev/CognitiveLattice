@@ -1,6 +1,7 @@
 from PIL import Image
 import math
 import re
+import json
 from config.dictionary import WORD_TO_COLOR, COLOR_TO_WORD
 from utils.dictionary_manager import expand_dictionary
 
@@ -19,11 +20,16 @@ def normalize_token(token):
         return tokens
     return [token]
 
-def encode_text_to_image(text, output_path):
-    expand_dictionary(text)  # Ensure dictionary is updated
+def encode_text_to_image(text, output_path, encryption_key=None):
     
+    expand_dictionary(text)  # Ensure dictionary is updated  
     tokens = tokenize_text(text)
     pixels = []
+
+    if encryption_key is None:
+            with open("config/key.json", "r") as f:
+                encryption_key = tuple(json.load(f)["encryption_key"])
+
 
     for token in tokens:
         for sub_token in normalize_token(token):

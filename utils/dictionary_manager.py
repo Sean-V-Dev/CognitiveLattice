@@ -35,10 +35,10 @@ def expand_dictionary(text):
         print(f"🆕 Learned ' ' → {WORD_TO_COLOR[' ']}")
     if '\n' not in WORD_TO_COLOR:
         WORD_TO_COLOR['\n'] = generate_unique_rgb()
-        print(f"🆕 Learned '\\n' → {WORD_TO_COLOR['\n']}")
+        print("🆕 Learned '\\n' →", WORD_TO_COLOR['\n'])
     if '\n\n' not in WORD_TO_COLOR:
         WORD_TO_COLOR['\n\n'] = generate_unique_rgb()
-        print(f"🆕 Learned '\\n\\n' → {WORD_TO_COLOR['\n\n']}")
+        print("🆕 Learned '\\n\\n' →", WORD_TO_COLOR['\n\n'])
     save_dictionary()
 
 def save_dictionary(path="config/dictionary.json"):

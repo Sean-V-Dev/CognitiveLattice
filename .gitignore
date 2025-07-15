@@ -207,3 +207,17 @@ marimo/_lsp/
 __marimo__/
 
 .env
+
+# External repositories to exclude
+llama.cpp/
+vcpkg/
+
+# Build artifacts and models
+__pycache__/
+*.gguf
+*.png
+*.txt
+
+# Optional
+*.log
+*.ipynb_checkpoints/

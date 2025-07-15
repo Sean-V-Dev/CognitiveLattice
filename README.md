@@ -1,65 +1,105 @@
-# 🧠 TokenSight: Precision Scaffolding for LLMs
+# 🧠 TokenSight: Token Discipline for Intelligent Inference
 
-TokenSight is an experimental framework that solves one of the most overlooked problems in modern LLM design: **token drift and context overload**. Instead of brute-forcing larger context windows, TokenSight uses modular compression, intelligent routing, and secure input isolation to ensure that only the *right* data reaches the model — exactly when it’s needed.
+**TokenSight** is a modular framework that tackles one of the root causes of LLM drift, hallucination, and inefficiency: uncontrolled token usage.
 
-Built for clarity, security, and extreme efficiency.
+Rather than expanding context windows or stacking memory blobs, TokenSight implements surgical input management — selectively compressing, encrypting, and routing information to ensure only the *right* data reaches a large model, at the *right* time.
+
+Its mission is simple:  
+> 🔍 *Watch every token. Limit waste. Maximize meaning.*
 
 ---
 
 ## 🚀 Why It Exists
 
-Most LLM frameworks force models to reread entire context windows, wasting tokens and introducing drift or hallucinations. TokenSight was born from real frustration: after watching multiple AIs struggle to study a simple exam, the insight hit — the failure wasn’t intelligence. It was *architecture*.
+Most LLM architectures suffer from token sprawl:
+- Context windows flooded with raw input
+- Unfiltered task data bleeding into unrelated inference
+- Sensitive content exposed before it’s needed
 
-This project reframes how LLMs consume input:
-- **Don’t expand the window. Reroute the stream.**
+**TokenSight prevents this** by introducing a buffer layer — a secure staging ground where input is cleaned, chunked, and *summarized by a small local LLM* before entering the attention-heavy realm of a larger model.
 
----
+This results in:
+- ✅ Reduced hallucination
+- ✅ Sharpened attention
+- ✅ Enhanced privacy
+- ✅ Lower token consumption
 
-## 🧩 Core Modules
-
-| Module | Description |
-|--------|-------------|
-| `encoder/` | Converts raw text into PNG-style dictionary images for token-safe transmission |
-| `decoder/` | Securely reverses image encoding to extract controlled input |
-| `llm/` | Lightweight LLM that acts as librarian, gatekeeper, and summarizer |
-| `memory/` | Stores summaries and contextual fragments for recall and drift prevention |
-| `router/` | (Coming soon) Pre-LLM filter to intercept and redirect oversized pasted input |
-
----
-
-## 🔐 Architectural Highlights
-
-- **Token-aware intake**: Avoid wasted context — only feed models what they need
-- **Secure passthrough**: Encode sensitive text into non-token formats before ingestion
-- **Delegated summarization**: Lightweight LLM scaffolds memory and meaning
-- **Modular by design**: Each component stands alone or integrates easily
+You don’t need bigger windows.  
+You need better doors.
 
 ---
 
-## 💡 Future Modules
+## 🧩 Pipeline Modules
 
-- Semantic drift detector  
-- Overflow manager (kiddie pool logic)  
-- Instruction reinforcement agent  
-- Privilege-based context access  
-- Visualizer dashboard for memory tracking
+| Module        | Description                                                                 |
+|---------------|-----------------------------------------------------------------------------|
+| `encoder/`    | Converts cleaned text into encrypted image artifacts (uses XOR for demo)    |
+| `decoder/`    | Recovers plaintext from image artifacts, validating semantic fidelity       |
+| `utils/`      | Handles dictionary logic, input cleanup, and chunk fidelity scoring         |
+| `main.py`     | Full-cycle orchestration: encode → decode → summarize → store               |
+| `llm_server/` | Lightweight LLaMA server interface for chunk summarization                  |
+| `memory/`     | Retains summaries for retrieval, searching, and context scaffolding         |
+| `config/`     | Holds encryption key and customizable chunking parameters                   |
+
+Planned additions:
+- `router/`: Pre-LLM input interceptor and dispatch manager
+- `redactor/`: Rule-based content filter for sensitive context exposure
+
+---
+
+## 🔐 Core Design Philosophy
+
+TokenSight treats input like a **hazmat material** — not because data is dangerous, but because careless exposure is.
+
+- 🔥 **No raw input enters the big LLM unexamined**
+- 🧠 **Small LLM acts as a security guard, deciding what gets passed on**
+- 🖼️ **Encrypted image transmission keeps input cold until explicitly decoded**
+    ⚠️ TokenSight currently uses a basic XOR-based encryption for proof of concept. While it successfully obscures input and verifies decode integrity, it is not suitable for secure production use. Future versions will support stronger cryptographic standards (e.g., AES, Fernet), environment-based key handling, and compliance-aware input processing.
+
+- 🧮 **Chunking optimizes token footprint — no bloated context windows**
+- 🧬 **Redaction rules allow for selective privacy: redact, truncate, or reject**
+
+In short:  
+> 📦 *The big LLM sees nothing until the small one says it’s safe.*
+
+---
+
+## 🎯 Milestone: Chapter-Level Summary Success
+
+- ✔️ Successfully processed Chapter 1 of *Pride and Prejudice*
+- ✔️ 100+ lines sanitized, encrypted, chunked, and summarized
+- ✔️ Fidelity validated >99% on encode/decode
+- ✔️ Summaries were accurate, tone-aware, and contextually rich
+
+Memory log and agent behavior matched expectations for scalable multi-chunk input handling.
+
+---
+
+## 🛠️ Future Enhancements
+
+- Context chaining between chunk summaries
+- Multi-chapter document inference with persistent memory
+- Semantic search across memory blocks
+- PDF ingestion with compliance filtering
+- CLI and API interface for secure input management
 
 ---
 
 ## 👋 About the Builder
 
-Hi, I'm Sean — a systems-focused software engineering student who thinks friction points aren't bugs, they're blueprints. I built this framework during university while working full-time and raising three young kids. Turns out, curiosity beats curriculum.
+Hi, I’m Sean — a systems architect with a passion for frictionless design. TokenSight wasn’t born to compete with LangChain or replicate AutoGPT — it was built to solve one quiet, persistent problem: why do smart models burn tokens like they’re free?
 
-I didn’t start with a plan to build a LangChain competitor — just a study helper that *didn’t get confused*. It turned into an architecture that might change how we think about token usage, security, and memory in AI design.
-
----
-
-## 📌 License
-
-MIT — open to explore, extend, improve.
+As a parent, student, and full-time engineer, I believe architecture is intelligence. I’m building frameworks that respect context, compression, and collaboration.
 
 ---
 
-## 🌐 Contact & More
+## 📜 License
 
-LinkedIn coming soon. In the meantime, feel free to explore or leave feedback through GitHub Issues.
+MIT — fork freely, contribute generously, break things carefully.
+
+---
+
+## 🌐 Contact
+
+LinkedIn coming soon.  
+Feel free to open issues or drop feedback directly in the repo.
