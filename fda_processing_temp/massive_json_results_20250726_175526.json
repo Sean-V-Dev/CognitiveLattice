@@ -1,0 +1,35 @@
+{
+  "total_files_attempted": 1,
+  "successful_files": 1,
+  "failed_files": 0,
+  "total_chunks_created": 0,
+  "total_processing_time_minutes": 0.02995559771855672,
+  "average_time_per_file_minutes": 0.02995559771855672,
+  "processing_rate_chunks_per_minute": 0.0,
+  "individual_results": [
+    {
+      "file_processed": "drug-label-0001-of-0013.json",
+      "batches_processed": 0,
+      "total_chunks_created": 0,
+      "structure_analysis": {
+        "file_size_mb": 616.0256471633911,
+        "estimated_records": 0.0,
+        "root_structure": "object",
+        "sample_keys": [],
+        "nested_levels": 0,
+        "recommended_chunk_size": 100,
+        "parsing_strategy": "items"
+      },
+      "processing_time": "2025-07-26T17:55:26.044253",
+      "errors": 0
+    }
+  ],
+  "final_stats": {
+    "total_files_processed": 1,
+    "total_records_processed": 0,
+    "total_chunks_created": 0,
+    "processing_start_time": "2025-07-26T17:55:24.248550",
+    "current_file": "drug-label-0001-of-0013.json",
+    "errors": []
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "total_files_processed": 0,
+  "total_records_processed": 10000,
+  "total_chunks_created": 10000,
+  "processing_start_time": "2025-07-26T17:44:30.678336",
+  "current_file": "demo_massive_data.json",
+  "errors": [],
+  "last_updated": "2025-07-26T17:44:30.846247"
+}

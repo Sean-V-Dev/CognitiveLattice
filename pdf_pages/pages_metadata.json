@@ -1,0 +1,218 @@
+{
+  "source_pdf": "example.pdf",
+  "total_pages": 12,
+  "output_directory": "pdf_pages",
+  "pages": [
+    {
+      "page_number": 1,
+      "filename": "page_001.png",
+      "filepath": "pdf_pages\\page_001.png",
+      "text_content": "DO NOT RETURN THIS ITEM TO THE STORE OR\nWEBSITE WHERE IT WAS PURCHASED.\nPLEASE VISIT BESTWAYUSA.COM/SUPPORT\nFOR QUESTIONS, OR FOR DEFECTIVE OR\nWARRANTY CLAIMS.\n90490E\nSTEEL PRO MAX™\n90425E/90458E/90491E\nPOWER STEEL™\nOWNER’S MANUAL\n",
+      "visual_keywords": [],
+      "has_visual_content": false,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 231
+    },
+    {
+      "page_number": 2,
+      "filename": "page_002.png",
+      "filepath": "pdf_pages\\page_002.png",
+      "text_content": "",
+      "visual_keywords": [],
+      "has_visual_content": false,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 0
+    },
+    {
+      "page_number": 3,
+      "filename": "page_003.png",
+      "filepath": "pdf_pages\\page_003.png",
+      "text_content": "3\nPrevent Drowning\nWARNING\nChildren under 5 are at highest risk for drowning. \nClosely watch children who are in or near this pool. \nNo Diving\nWARNING\nYou can break your neck and be paralyzed! \nElectrocution Risk\nWARNING\nKeep all electrical lines, radios, speakers, and other electrical \ndevices away from pool. Do not place pool near or under overhead \nelectrical lines.\nStay away from drains & suction fittings\nWARNING\nIf drain or suction outlet cover is missing or broken, your hair, body, \nand jewelry can get sucked into drain. You could be held under water \n& drown! Do not use pool if drain or suction outlet cover is missing or \nbroken.\nIMPORTANT SAFETY INSTRUCTIONS\nWARNINGS\nRead and Follow All Safety Information and Instructions. Keep for future reference. Failure to \nfollow these warnings and instructions can result in serious injury or death to users, especially   \nchildren.\nPrevent Young Children From Drowning:\nInstall fencing or approved barrier around all sides of pool. State or local laws or codes may require fencing or other approved barriers.\nCheck state or local laws and codes before setting up pool. Drowning occurs silently and quickly. Assign an adult to supervise pool and wear\nprovided water watcher tag.\nKeep children in your direct sight when they are in or near pool and when you are filling and emptying pool.\nWhen searching for a missing child, check pool first, even if you think your child is in the house.\nPool presents a drowning hazard even during filling and draining of the pool. Maintain constant supervision of children and do not remove any\nsafety barriers until the pool is completely empty and stowed away.\nRefer to the list of barrier recommendations and guidelines as described in CPSC Publication No.362.\nAssign an adult to be responsible for watching children in the pool. Give this person a “water watcher” tag and ask that they wear it the entire time\nthey are in charge of supervising children in the pool. If they need to leave for any reason, ask this person to pass the “water watcher” tag and the\nsupervision responsibility to another adult.\nLocate pumps and filters in such a way that children cannot climb on them to gain access to pool.\nPrevent Young Children From Gaining Access to Pool:\nRemove pool ladders before leaving pool. Toddlers can climb ladder and get into pool.\nPosition furniture away from pool so that children cannot climb and gain access to pool.\nWhen leaving pool, remove floats and toys from pool that might attract a child.\nBe Prepared to Respond to an Emergency:\nKeep a working phone and list of emergency numbers near pool. Become certified in cardiopulmonary resuscitation (CPR) so you can respond to\nan emergency.\nElectrocution Risk:\nKeep all electrical lines, radios, speakers, and other electrical devices away from pool.\nDo not place pool near or under overhead electrical lines.\nSuction Risk:\nReplacement pump should never exceed the maximum flow rate marked on the suction fitting.\n",
+      "visual_keywords": [
+        "installation",
+        "procedure"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 2974
+    },
+    {
+      "page_number": 4,
+      "filename": "page_004.png",
+      "filepath": "pdf_pages\\page_004.png",
+      "text_content": "4\nIMPORTANT SAFETY INSTRUCTIONS\nSafety Barrier Guidelines for Residential Swimming Pool \nSection I: Outdoor swimming pool\nAn outdoor swimming pool, including an inground, aboveground, or onground pool, hot tub, or spa, should be provided with a barrier which \ncomplies with the following:\n• The top of the barrier should be at least 48 inches above grade measured on the side of the barrier which faces away from the swimming pool. \nThe maximum vertical clearance between grade and the bottom of the barrier should be 4 inches measured on the side of the barrier which faces \naway from the swimming pool. Where the top of the pool structure is above grade, such as an aboveground pool, the barrier may be at ground \nlevel, such as the pool structure, or mounted on top of the pool structure. Where the barrier is mounted on top of the pool structure, the maximum \nvertical clearance between the top of the pool structure and the bottom of the barrier should be 4 inches.\n• Openings in the barrier should not allow passage of a 4-inch diameter sphere.\n• Solid barriers, which do not have openings, such as a masonry or stone wall, should not contain indentations or protrusions except for normal \nconstruction tolerances and tooled masonry joints.\n• Where the barrier is composed of horizontal and vertical members and the distance between the tops of the horizontal members is less than \n  45 inches, the horizontal members should be located on the swimming pool side of the fence. Spacing between vertical members should not \nexceed 1¾ inches in width. Where there are decorative cutouts, spacing within the cutouts should not exceed 1¾ inches in width.\n• Where the barrier is composed of horizontal and vertical members and the distance between the tops of the horizontal members is 45 inches or \nmore, spacing between vertical members should not exceed 4 inches. Where there are decorative cutouts, spacing within the cutouts should not \nexceed 1¾ inches in width.\n• Maximum mesh size for chain link fences should not exceed 1¾ inch square unless the fence is provided with slats fastened at the top or the \nbottom which reduce the openings to no more than 1¾ inches.\n• Where the barrier is composed of diagonal members, such as a lattice fence, the maximum opening formed by the diagonal members should be \nno more than 1¾ inches.\n• Access gates to the pool should comply with Section I, Paragraphs 1 through 7, and should be equipped to accommodate a locking device. \nPedestrian access gates should open outward, away from the pool, and should be self-closing and have a self-latching device. Gates other than \npedestrian access gates should have a self-latching device. Where the release mechanism of the self-latching device is located less than \n  54 inches from the bottom of the gate, (a) the release mechanism should be located on the pool side of the gate at least 3 inches below the top of \nthe gate and (b) the gate and barrier should have no opening greater than ½ inch within 18 inches of the release mechanism.\n• Where a wall of a dwelling serves as part of the barrier, one of the following should apply:\n  (a) All doors with direct access to the pool through that wall should be equipped with an alarm which produces an audible warning when the door \nand its screen, if present, are opened. The alarm should sound continuously for a minimum of 30 seconds within 7 seconds after the door is \nopened. Alarms should meet the requirements of UL2017 General-Purpose Signaling Devices and Systems, Section 77. The alarm should \nhave a minimum sound pressure rating of 85 dBA at 10 feet and the sound of the alarm should be distinctive from other household sounds, \nsuch as smoke alarms, telephones, and door bells. The alarm should automatically reset under all conditions. The alarm should be equipped \nwith manual means, such as touchpads or switches, to temporarily deactivate the alarm for a single opening of the door from either direction. \nSuch deactivation should last for no more than 15 seconds. The deactivation touchpads or switches should be located at least 54 inches above \nthe threshold of the door.\n  (b) The pool should be equipped with a power safety cover which complies with ASTM F1346-91 listed below.\n  (c) Other means of protection, such as self-closing doors with self-latching devices, are acceptable so long as the degree of protection afforded is \nnot less than the protection afforded by (a) or (b) described above.\n• Where an aboveground pool structure is used as a barrier or where the barrier is mounted on top of the pool structure, and the means of access \nis a ladder or steps, then (a) the ladder to the pool or steps should be capable of being secured, locked or removed to prevent access, or (b) the \nladder or steps should be surrounded by a barrier which meets Section I, Paragraphs 1 through 9. When the ladder or steps are secured, locked, \nor removed, any opening created should not allow the passage of a 4-inch diameter sphere.\nSection II: Barrier Locations\nBarriers should be located so as to prohibit permanent structures, \nequipment or similar objects from being used to climb the barriers.\n• Only for outdoor use.\n• Teach your children to swim.\n• Never dive, jump, or slide into the pool.\n• Adult supervision is always required.\n• Parents should learn CPR.\n• Never swim alone.\n• Keep all electrical radios, speakers and other appliances away from the \nswimming pool.\n• When you touch the filter, pump, or electrical parts, be sure the ground \nunder your feet is “Bone Dry”.\n• All electrical outlets should have a GFCI and connections should be a \nminimum of 5 feet (1.52 m) from the outside perimeter of the wall of the pool. From 5–10 feet (1.52–3.05 m), there should be either a fixed \nconnection (outlet box) or twistlock connection with a GFCI. \n• Connect power cords to a 3-wire grounding-type outlet only.\n• Keep all breakable objects out of the pool area.\n• Alcohol consumption and pool activities do not mix. Never allow anyone to swim, dive or slide under the influence of alcohol or drugs.\n• Severe electrical shock could result if you install your pump or filter on a deck. The pump or filter could fall into the water, causing severe shock or \nelectrocution. Do not install on a deck or other surface at, above, or slightly below the top rail of the pool.\n• Do not use the pool during severe weather conditions, i.e. electrical storms, tornadoes, etc.\n• Be aware of overhead power lines when vacuuming your pool or using a telescoping pole.\n• Do not allow diving, climbing, sitting, or standing on the top rails of the pools.\n• Do not allow roughhousing and horseplay.\n• Do not engage in extended breath holding activities underwater; you may black out and drown.\n• Install a pool ladder(s) or staircase for entry and exit from the pool. \n• Keep deck clean and clear of objects that may create a tripping hazard.\n• Check regularly for signs of wear or loose bolts that could make the deck unsafe.\n• Instruct pool users about the proper use of all pool ladder(s) and staircases.\n• Face ladder going up or down.\n• Allow only one person at a time on the ladder.\n• Check all nuts and bolts regularly to ensure that the ladder stays sturdy.\n• Remove or secure the ladder to prevent entry to pool when not in use.\n• Please contact pool site dealer or manufacturer for additional safety signs if deemed necessary.\n• For pool service, select a certified pool professional.\n• Any equipment connected to the circulation systems shall be positioned so as to prevent their being used as a means of access to the pool by \nyoung children.\nWARNING\nYou can be permanently injured.\nWatch children at all times.\nNO DIVING!\nShallow water.\nPREVENT\nDROWNING\n",
+      "visual_keywords": [
+        "table",
+        "installation",
+        "parts",
+        "procedure",
+        "maintenance"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 7711
+    },
+    {
+      "page_number": 5,
+      "filename": "page_005.png",
+      "filepath": "pdf_pages\\page_005.png",
+      "text_content": "5\nIMPORTANT SAFETY INSTRUCTIONS\n• The installation must comply with the codes of the authority having jurisdiction and may require permits for building, plumbing electrical, zoning, \netc.\n• The pool shall be located a minimum distance of 6 ft. (1.83 m) from any electrical receptacle.\n• All 125 volt, 15 and 20 ampere receptacles located within 20 ft. (6 m) of the pool shall be protected by a ground fault circuit interrupter (GFCI). The \n20 ft. (6 m) distance is measured via the shortest straight line distance the supply cord would follow without piercing a floor, wall, ceiling, doorway, \nwindow, or other permanent barrier.\n• Prior to use of the pool, the installer shall affix all no diving signs and safety signs in accordance with installation instructions so they can be easily \nvisible.\n• A barrier is necessary to provide protection against potential drowning and near drowning and that barriers are not a substitute for the constant \nsupervision of children.\n• A list of emergency telephone numbers shall be posted, such as the nearest available police, fire, ambulance, and/or rescue unit. These numbers \nare to be kept near the telephone that is closest to the pool.\n• Toys, chairs, tables, or similar objects that a young child could climb shall be at least 4 feet (1219 mm) from the pool.\n• If deck is used by the installer, it will need to comply with APSP-8. \n• Basic lifesaving equipment, including one of the following, shall be on hand at all times: a. A light, strong, rigid pole (shepherd’s crook) not less \nthan 12 ft. (3.66 m) long. b. A minimum ¼ in. (6 mm) diameter rope as long as 1½ times the maximum width of the pool or 50 feet (15.24 m), \nwhichever is less, which has been firmly attached to a Coast Guard-approved ring buoy, or a similarly approved flotation devices. \n• The swimming pool cover is not designated as a safety barrier. Please use artificial lighting during nighttime pool use, to illuminate all safety signs, \nladders, steps, deck surfaces and walks.\n• The pool is subject to wear and deterioration. If not maintained properly, certain types of excessive or accelerated deterioration can lead to failure \nof the pool structure that might release large quantities of water that could cause bodily harm and property damage.\n• The bottom of the pool shall be visible at all times from the outside perimeter of the pool.\n• The installer of the vinyl liner shall affix on the original or replacement liner, or on the pool structure, all safety signs in accordance with the \nmanufacturer’s instructions.\n• The ladder shall be located on a solid base and the ladder shall be installed per the ladder’s instructions.\n• Publications are available that describe the risk of drowning, entrapment, and diving accidents. Available publications related to pool safety \ninclude the Association of Pool and Spa Professionals’ (APSP) booklets entitled: The Sensible Way to Enjoy Your Aboveground/Onground \nSwimming Pool, Children Aren’t Waterproof, Pool and Spa Emergency Procedures for Infants and Children, Layers of Protection, and the latest \npublished edition of ANSI/APSP-8 Model Barrier Code for Residential Swimming Pools, Spas, and Hot Tubs.\nFor additional safety information, see www.APSP.org.\nNOTE: If your purchased pool set do not have any circulation system, you can purchase separately. But please make sure the equipment \ncan turn over total volume of pool water no less than once every 12 hr. You can check the water capacity on packaging to select suitable circulation \nsystem. Pump provided for the circulation of water shall be tested by a Nationally Recognized Testing Laboratory and certified to conform to \nUL1081.\nAlso make sure the selected suction outlet sold with the pump should be tested by a Nationally Recognized Testing Laboratory and certified to \nconform to ASME/ANSI A112.19.8 or its successor standard ANSI/APSP-16, in order to prevent suction entrapment.\nTECHNICAL SAFETY INSTRUCTIONS\n• THIS PRODUCT IS COMPLIANT TO ANSI/ APSP 4 AMERICAN NATIONAL STANDARD FOR ABOVEGROUND POOLS / ONGROUND \nRESIDENTIAL SWIMMING POOLS & INTERNATIONAL SWIMMING POOL & SPA CODE (ISPSC)\n• (Only for USA & only for pools with a water depth of more than 36 in. (914 mm))\nFor further safety tips check out the following websites: \nwww.homesafetycouncil.org \nhttp://www.safety-council.org/info/child/water.html \nwww.safekids.org\nwww.nspi.org\n",
+      "visual_keywords": [
+        "table",
+        "installation",
+        "procedure"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 4386
+    },
+    {
+      "page_number": 6,
+      "filename": "page_006.png",
+      "filepath": "pdf_pages\\page_006.png",
+      "text_content": "C1\nC2\n6\nPARTS & TOOLS NEEDED\nSETUP INSTRUCTIONS\nOVERVIEW\nCompare the parts in your box to the parts listed in this manual. Verify that the equipment components represent the model that you had intended\nto purchase. If any parts are damaged or missing at the time of purchase, visit our website bestwayusa.com/support.\nA\nB\nF\nG\nD\nE\nJ\nH\nI\nMax 0.79 in. / 2 cm\nSTEEL PRO MAX™\n14 ft. x 33 in.\n(4.27 m x 84 cm )\n256002001745\nx1\nx14\nx14\n/\nx14\nx14\nx3\n/\n/\nx1\nx1\nA\nB\nC1\nC2\nD\nE\nF\nG\nH\nI\nJ\nPOWER STEEL™\n16 ft. x 42 in.\n(4.88 m x 1.07 m)\n256002001746\nx1\nx16\nx16\n/\nx16\nx16\nx3\n/\n/\nx1\nx1\n18 ft. x 48 in.\n(5.49 m x 1.22 m)\n256002001747\nx1\nx18\nx18\n/\nx18\nx18\nx2\nx1\nx1\nx1\nx1\n22 ft. x 52 in.\n(6.71 m x 1.32 m)\n256002001748\nx1\nx22\n/\nx22\nx22\nx22\nx2\nx1\nx1\nx1\nx1\nA\nB\nC1\nC2\nD\nE\nF\nG\nH\nI\nJ\n",
+      "visual_keywords": [
+        "installation",
+        "parts",
+        "procedure"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 760
+    },
+    {
+      "page_number": 7,
+      "filename": "page_007.png",
+      "filepath": "pdf_pages\\page_007.png",
+      "text_content": "7\nSETUP INSTRUCTIONS\nCHOOSE THE CORRECT LOCATION\nThe surface chosen to install the pool on must respect the following conditions:\n• Because of the combined weight of the water inside the pool and the pool users, it is extremely important that the surface chosen to install the \npool on is capable of uniformly supporting the total weight for the entire time the pool is installed. When choosing the surface, take into \nconsideration that water may come out of the pool when in use or when it rains. If the water softens the surface, it may lose its capability to \nsupport the pool weight.\n• Check the position of the vertical legs and/or the U-supports regularly. They must be on the same level as the bottom of the pool at all times. If the \nvertical leg or the U-support starts to sink into the ground, drain the pool water immediately to avoid the pool collapsing due to the uneven loading \non the frame structure. Change the location of the pool or modify the surface material.\n• The surface must be flat and smooth. If the surface is inclined or uneven, it can create an unbalanced loading on the structure of the pool. This \ncan damage the welding points of the liner and bend the frame. In the worst cases, the pool can collapse, causing serious personal injury and/or \ndamage to personal property.\n• We recommend positioning the pool away from any objects children could use to climb into the pool.\n• Position the pool near an adequate drainage system to deal with overflow or to empty the pool. Ensure the pool side with the water inlet A and \noutlet B is located in the same direction of the power source, where the filtration system has to be connected.\n• The selected surface must be clear of any type of object. Due to the weight of the water, any object under the pool could damage or perforate the \nbottom of the pool.\n• The selected surface must be clear of aggressive plants and weed species. Those types of strong vegetation could grow through the liner and \ncreate water leakage. Grass or other vegetation that may cause odor or slime to develop have to be eliminated from the set-up location.\n• The selected location must not have overhead power lines or trees. Be sure the location does not contain underground utility pipes, lines or \ncables of any kind.\n• The selected position must be far from house entrance. Do not position any equipment or other furniture around the pool. The water that comes \nout of the pool during use or due to product faults can damage furniture inside the house or surrounding the pool.\n• The selected surface must be flat and without holes that can damage the material of the liner.\n• Keep at least 1.5 meters around the pool free of walls, fences or other structures to avoid damaging to the pool during use.\n  Suggested set-up surfaces: grass, ground, concrete, and all other surfaces that respect the above set-up conditions.\n  Surfaces to avoid: mud, sand, gravel, deck, balcony, driveway, platform, soft/loose soil or other surface that does not meet the above set-up \nconditions.\n• Check with your local city council for by-laws relating to fencing, barriers, lighting and safety requirements and ensure you comply with all laws.\n• If a pump and/or ladder is included in the set, refer to the pump's and/or ladder's manual for safety instructions and installation. The ladder must \nmatch the pool size.\n• If during set up it is necessary to change the position of the pool, lift up the liner and do not drag it on the ground; the friction between the PVC \nmaterial and the ground can damage the pool liner.\n• Follow the important instructions above to choose the correct surface and location to set up your pool. Damaged parts of the pool, due \nto the fact that the set-up surface and location does not match the instructions, will not be considered as manufacture defect and will \navoid the warranty and any service claims.\nAssembly Instructions\nFor installation instructions, scan the QR Code printed on the front cover or follow the illustrations below. Drawings are for illustration purposes only. \nMay not reflect actual product. Not to scale. Assembly of this pool can be completed without additional tools. Bestway is not responsible for \ndamage caused to the pool due to mishandling or failure to follow these instructions.\nHelpful Installation Tips:\nWe strongly suggest opening the package and assembling the pool when the ambient temperature is above 59ºF / 15ºC. The PVC material of the \nliner will be more flexible and easier to assemble in this environment. To expedite the assembly process, we suggest setting the pool up with the \nhelp of 2-3 people.\nWe suggest you buy a pool ladder (if one is not included in the set) and prepare it before setting up the pool, as it will help whenever you need to \nget inside it.\nFilling the Pool with Water:\nATTENTION: Do not leave the pool unattended while filling with water. Check the pool situation by time during this operation. Be sure that the \nposition of the vertical legs is not under the liner and is 90 degrees to the surface.\nIt is highly recommended to use tap water for filling to minimize unwanted content, such as minerals. Do not use sea water. Fill the pool with water \nafter all assembly steps are completed and until the water reaches the welding line, which corresponds to 90% of the full capacity. Do not overfill as \nthis could cause the pool to collapse. In the case of heavy rainfall, we strongly recommend reducing the water level to keep it at 90% capacity and \navoid the overflow of water.\nIMPORTANT: When the pool is 90% full, check that the distance between the water surface and the top of the rails is the same all around. If it is \ndifferent, it means that the surface is not level, and we strongly recommend draining the water and adjusting the chosen location. Never attempt to \nmove the pool with water still in it.\nIMPORTANT: Keeping the pool full of water on unlevel ground can cause the bursting of welding points and/or pool collapse, causing serious \npersonal injury and/or damage to property. Your pool may contain a great deal of pressure. If your pool has a bulge or uneven side, the sides may \nburst, suddenly releasing water and causing serious personal injury and/or damage to property. When the pool is 90% full, check the pool for any \nleaks at the valves or seams and for any evident water loss. Do not add any chemicals to the water until this has been done.\n",
+      "visual_keywords": [
+        "diagram",
+        "installation",
+        "parts",
+        "procedure",
+        "maintenance"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 6420
+    },
+    {
+      "page_number": 8,
+      "filename": "page_008.png",
+      "filepath": "pdf_pages\\page_008.png",
+      "text_content": "B\nC2\nC1\n2\n1\n90º\n90º\n3\nD\nE\n8\nINSTALLATION\n0.39 in. (1 cm)\n4\nB\n6\nG\nH\nA\nInstall Part E with the curved edge facing outward.\nIMPORTANT: The vertical legs must be inserted between the liner and the belt before \nattaching the T-connectors. The legs must be perpendicular to the ground in two \ndirections.\nWhen the pool is filled with around 0.39 in. (1 cm) of water, gently smooth out the bottom liner to remove all folds. We recommend starting \nfrom the center of the pool and continuing outwards. You can continue to fill the pool when the floor is smooth and wrinkle-free.\nIf the connection valve for the pool's inlet A is composed of Part H and Part G:\n1. Unscrew the gear from Part G.\n2. Insert the smaller end of Part G through the inlet from the inside of the pool.\n3. Tighten the gear from the outside of the pool to attach Part G to the liner.\n4. Screw Part H onto Part G and close the water valve in the locked position to complete the connection.\n5\n",
+      "visual_keywords": [
+        "installation"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 954
+    },
+    {
+      "page_number": 9,
+      "filename": "page_009.png",
+      "filepath": "pdf_pages\\page_009.png",
+      "text_content": "9\n2.0 in. - 7.9 in.\n(5 cm - 20 cm)\n7\n90º\n90º\nIMPORTANT: Check the position of the vertical legs at \ntimes while filling the pool with water. The legs can \ngradually change position due to increased water weight. \nIf the legs are not perpendicular to the ground, please \nstop filling the pool and adjust them. It will help with \nweight distribution to avoid strain on the frame and liner.\nMAINTENANCE INSTRUCTIONS\nIf you do not adhere to the maintenance guidelines below, your health might be at risk, especially that of your children.\nWATER\n• Keeping your pool water clean and chemically balanced is necessary. Simply cleaning the filter cartridge is not enough for proper maintenance; \nwe recommend you use pool chemicals to maintain water chemistry and chlorine or bromine tablets (do not use granules) with the chemical \ndispenser.\n• Water quality is directly related to frequency of use, number of users and overall maintenance of the pool. The water should be changed every 3 \ndays if there is no chemical treatment being performed with the water. It is highly recommended to use tap water for filling to minimize the \ninfluence of unwanted content, such as minerals.\n• We recommend that you take a shower before using your pool, as cosmetic products, lotions, and other residues on the skin can quickly degrade \nwater quality.\n• Skim pool regularly to avoid settled dirt.\n• Locate a bucket of water next to pool to clean users’ feet before entering pool.\n• The chemical maintenance must be performed with ChemConnect or chemical floater; don't throw chemical products directly in the water, the \nchemical will deposit on the bottom and damage the material and discolor the PVC.\nChemical Tablets (Not Included):\n• Your purchased pool set may not include any dispensers; in this case you can purchase one by visiting our website www.bestwayusa.com or at \nthe nearest pool dealer.\n• Remove the chemical dispenser from pool when the pool is in use.\n• After performing chemical maintenance and before using the pool, use a test kit (not included) to test the water chemistry. We recommend \nmaintaining your water chemical balance as shown in the below table.\n• Pool damage resulting from misuse of chemicals and mismanagement of pool water is not covered by the warranty.\n• Over usage of chemicals will discolor the printing and all points of the pool material; in worst cases, it will damage the structure of the pool liner.\n• Pool chemicals are potentially toxic and should be handled with care. There are serious health risks from chemical vapors and the incorrect \nlabeling and storage of chemical containers.\n• Please consult your local pool or chemical supply retailer for more information about chemical maintenance. Pay close attention to the chemical \nmanufacturer’s instructions.\n• The pump is used to circulate the water and to filter small particles. In order to keep your pool water clean and hygienic, you must also add \nchemicals.\nLINER\n• We suggested that you buy a pool cover, if not included in the set, and cover the pool when not in use, to prevent any damage to the Duraplus \nmaterial on the top rails. Gently clean any dirt deposit on the top rails with a clean cloth.\n• Before attaching the pool cover, ensure the water is at the maximum level. If the water level is too low, the pool cover should not be installed.\nTEST\npH value\nCyanuric acid\nFree chlorine\nChlorine compound\nAlgae\nCalcium hardness\nIDEAL VALUES\n7.4 – 7.6\n30 – 50 ppm\n2 – 4 ppm\n0\nNone visible\n200 – 400 ppm\nPOOL COVER\n",
+      "visual_keywords": [
+        "table",
+        "installation",
+        "procedure",
+        "maintenance"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 3508
+    },
+    {
+      "page_number": 10,
+      "filename": "page_010.png",
+      "filepath": "pdf_pages\\page_010.png",
+      "text_content": "10\nDISASSEMBLY & STORAGE INSTRUCTIONS\n3\n1\n2\nDRAINING\n• For draining, follow the drawings inside the manual. Drawings are for illustration purposes only. May not reflect actual product. Not to scale.\n• To drain your pool water, check local regulations for drainage by-laws.\nCLEANING\n• Rinse the pool liner with tap water, to remove any residual of chemicals or dirt completely.\n• Leave the pool under the sunlight until it's completely dried.\n• To remove the remaining water completely, wipe the pool liner with a dry cloth.\nSTORAGE\n• Remove all accessories; be sure that pool liner and accessories are completely clean and dry before the storage. If the pool is not completely dry, \nmold may result and will damage the pool liner during the storage period.\n• Once pool is completely dry, sprinkle with talcum powder to prevent pool from sticking together.\n• We strongly recommend disassembling the pool when the environment temperature is below 10ºC / 50ºF.\n• Fold the pool liner only if the environment temperature is above 10ºC / 50ºF. Store the pool in a dry place with a moderate temperature between \n10ºC / 50ºF and 38ºC / 100ºF and position the pool liner and all accessories inside a carton box, to better protect the PVC material during the \nwinter period.\nREPAIR\nIn the event of a leak, patch your pool using the underwater adhesive repair patch provided. You can find the instructions in FAQs on the support \nsection of our website, www.bestwayusa.com/support.\nDRAINING\n",
+      "visual_keywords": [
+        "diagram",
+        "installation",
+        "procedure",
+        "maintenance"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 1480
+    },
+    {
+      "page_number": 11,
+      "filename": "page_011.png",
+      "filepath": "pdf_pages\\page_011.png",
+      "text_content": "11\nTritech PVC Material Repair Patch \n(2.5cm ≤ the size of broken ≤ 5 cm) \nNOTE: Glue is not included due to shipping constraints. You \ncan find PVC or silicone-based glue at most retail outlets. Carefully \nread the warning labels and closely follow instructions on the back of \nglue before attempting the following repair steps.\n30’\n1. Find the broken area.\n3. Carefully peel patch.\n4. Apply the repair patch to repaired site and smooth out any air bubbles. \nPress for 30 seconds.\n2. Clean the area to be repaired.\n5. Wait 30 minutes before use.\n30’\n5. Wait 30 minutes before use.\n1. Discharge the water, fully clean and dry area to be repaired.\n2. Cut the correct size from the Tritech PVC Material Repair Patch.\n3. Apply only the amount of glue (not included) needed to cover the \nrepair site.\n4. Press the repair patch firmly to repair site for 30 seconds.\n",
+      "visual_keywords": [
+        "installation",
+        "procedure",
+        "maintenance"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 861
+    },
+    {
+      "page_number": 12,
+      "filename": "page_012.png",
+      "filepath": "pdf_pages\\page_012.png",
+      "text_content": "303021334791\n©2023 The Coleman Company, Inc.\nColeman® is a registered trademark of The Coleman Company, Inc., used under license.\nManufactured by Bestway ®                      \n©2023 Bestway (USA) Inc., 3435 S. McQueen Road, Chandler, AZ 85286, United States of America\nTrademarks used in some countries under license from\nBestway Inflatables & Material Corp., Shanghai, China\nExported by Bestway (Hong Kong) International Ltd./Bestway Enterprise Company Limited \nSuite 713, 7/Floor, East Wing, Tsim Sha Tsui Centre, 66 Mody Road, Kowloon, Hong Kong\nwww.bestwayusa.com\n",
+      "visual_keywords": [
+        "table"
+      ],
+      "has_visual_content": true,
+      "dimensions": {
+        "width": 794,
+        "height": 1191
+      },
+      "estimated_tokens": 170,
+      "text_length": 570
+    }
+  ],
+  "total_estimated_tokens": 2040,
+  "pages_with_visual_content": 10
+}

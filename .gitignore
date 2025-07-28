@@ -221,3 +221,8 @@ __pycache__/
 # Optional
 *.log
 *.ipynb_checkpoints/
+__pycache__
+*.pyc
+
+
+drug-label-0001-of-0013.json

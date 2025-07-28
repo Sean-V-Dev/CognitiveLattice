@@ -1,1 +1,0 @@
-Quantum node Alpha-7 failed to emit entangled signal.

@@ -36,7 +36,7 @@ def encode_text_to_image(text, output_path, encryption_key=None):
             if sub_token in WORD_TO_COLOR:
                 pixels.append(WORD_TO_COLOR[sub_token])
             else:
-                print(f"⚠️ Token not in dictionary: '{sub_token}'")
+                # print(f"⚠️ Token not in dictionary: '{sub_token}'")  # Commented out to reduce clutter
                 pixels.append((255, 0, 0))
 
     # Compute image dimensions

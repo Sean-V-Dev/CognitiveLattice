@@ -23,25 +23,36 @@ def generate_unique_rgb():
 
 def expand_dictionary(text):
     tokens = re.findall(r'\n\n|\n|[ ]{2,}|[ ]|[\w]+|[^\w\s]', text)  # Align with text_to_image.py
-    print(f"🔍 Tokens found: {tokens}")
+    # print(f"🔍 Tokens found: {tokens}")  # Commented out to reduce terminal clutter
+    new_tokens_count = 0
     for token in tokens:
         if token not in WORD_TO_COLOR:
             rgb = generate_unique_rgb()
             WORD_TO_COLOR[token] = rgb
-            print(f"🆕 Learned '{token}' → {rgb}")
+            new_tokens_count += 1
+            # print(f"🆕 Learned '{token}' → {rgb}")  # Commented out to reduce clutter
+    
     # Add single space and newline explicitly if not present
     if ' ' not in WORD_TO_COLOR:
         WORD_TO_COLOR[' '] = generate_unique_rgb()
-        print(f"🆕 Learned ' ' → {WORD_TO_COLOR[' ']}")
+        new_tokens_count += 1
+        # print(f"🆕 Learned ' ' → {WORD_TO_COLOR[' ']}")  # Commented out
     if '\n' not in WORD_TO_COLOR:
         WORD_TO_COLOR['\n'] = generate_unique_rgb()
-        print("🆕 Learned '\\n' →", WORD_TO_COLOR['\n'])
+        new_tokens_count += 1
+        # print("🆕 Learned '\\n' →", WORD_TO_COLOR['\n'])  # Commented out
     if '\n\n' not in WORD_TO_COLOR:
         WORD_TO_COLOR['\n\n'] = generate_unique_rgb()
-        print("🆕 Learned '\\n\\n' →", WORD_TO_COLOR['\n\n'])
+        new_tokens_count += 1
+        # print("🆕 Learned '\\n\\n' →", WORD_TO_COLOR['\n\n'])  # Commented out
+    
+    # Summary message instead of individual token messages
+    if new_tokens_count > 0:
+        print(f"📝 Dictionary expanded: learned {new_tokens_count} new tokens")
+    
     save_dictionary()
 
 def save_dictionary(path="config/dictionary.json"):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(WORD_TO_COLOR, f, indent=2)
-    print(f"💾 Dictionary saved to {path}")
+    # print(f"💾 Dictionary saved to {path}")  # Commented out to reduce clutter

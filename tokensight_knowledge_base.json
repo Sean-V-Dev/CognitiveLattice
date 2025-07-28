@@ -1,0 +1,711 @@
+{
+  "chunk_metadata": [
+    {
+      "chunk_id": "page_1",
+      "source_type": "image",
+      "content": "Page 1 with visual content: ",
+      "image_metadata": {
+        "image_id": "page_1",
+        "source_page": 1,
+        "file_path": "pdf_pages\\page_001.png",
+        "classification": "page_image",
+        "description": "Page 1 with visual content: ",
+        "properties": {
+          "visual_keywords": [],
+          "has_visual_content": false,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 0.5,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_2",
+      "source_type": "image",
+      "content": "Page 2 with visual content: ",
+      "image_metadata": {
+        "image_id": "page_2",
+        "source_page": 2,
+        "file_path": "pdf_pages\\page_002.png",
+        "classification": "page_image",
+        "description": "Page 2 with visual content: ",
+        "properties": {
+          "visual_keywords": [],
+          "has_visual_content": false,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 0.5,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_3",
+      "source_type": "image",
+      "content": "Page 3 with visual content: installation, procedure",
+      "image_metadata": {
+        "image_id": "page_3",
+        "source_page": 3,
+        "file_path": "pdf_pages\\page_003.png",
+        "classification": "page_image",
+        "description": "Page 3 with visual content: installation, procedure",
+        "properties": {
+          "visual_keywords": [
+            "installation",
+            "procedure"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_4",
+      "source_type": "image",
+      "content": "Page 4 with visual content: table, installation, parts, procedure, maintenance",
+      "image_metadata": {
+        "image_id": "page_4",
+        "source_page": 4,
+        "file_path": "pdf_pages\\page_004.png",
+        "classification": "page_image",
+        "description": "Page 4 with visual content: table, installation, parts, procedure, maintenance",
+        "properties": {
+          "visual_keywords": [
+            "table",
+            "installation",
+            "parts",
+            "procedure",
+            "maintenance"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_5",
+      "source_type": "image",
+      "content": "Page 5 with visual content: table, installation, procedure",
+      "image_metadata": {
+        "image_id": "page_5",
+        "source_page": 5,
+        "file_path": "pdf_pages\\page_005.png",
+        "classification": "page_image",
+        "description": "Page 5 with visual content: table, installation, procedure",
+        "properties": {
+          "visual_keywords": [
+            "table",
+            "installation",
+            "procedure"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_6",
+      "source_type": "image",
+      "content": "Page 6 with visual content: installation, parts, procedure",
+      "image_metadata": {
+        "image_id": "page_6",
+        "source_page": 6,
+        "file_path": "pdf_pages\\page_006.png",
+        "classification": "page_image",
+        "description": "Page 6 with visual content: installation, parts, procedure",
+        "properties": {
+          "visual_keywords": [
+            "installation",
+            "parts",
+            "procedure"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_7",
+      "source_type": "image",
+      "content": "Page 7 with visual content: diagram, installation, parts, procedure, maintenance",
+      "image_metadata": {
+        "image_id": "page_7",
+        "source_page": 7,
+        "file_path": "pdf_pages\\page_007.png",
+        "classification": "page_image",
+        "description": "Page 7 with visual content: diagram, installation, parts, procedure, maintenance",
+        "properties": {
+          "visual_keywords": [
+            "diagram",
+            "installation",
+            "parts",
+            "procedure",
+            "maintenance"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_8",
+      "source_type": "image",
+      "content": "Page 8 with visual content: installation",
+      "image_metadata": {
+        "image_id": "page_8",
+        "source_page": 8,
+        "file_path": "pdf_pages\\page_008.png",
+        "classification": "page_image",
+        "description": "Page 8 with visual content: installation",
+        "properties": {
+          "visual_keywords": [
+            "installation"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_9",
+      "source_type": "image",
+      "content": "Page 9 with visual content: table, installation, procedure, maintenance",
+      "image_metadata": {
+        "image_id": "page_9",
+        "source_page": 9,
+        "file_path": "pdf_pages\\page_009.png",
+        "classification": "page_image",
+        "description": "Page 9 with visual content: table, installation, procedure, maintenance",
+        "properties": {
+          "visual_keywords": [
+            "table",
+            "installation",
+            "procedure",
+            "maintenance"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_10",
+      "source_type": "image",
+      "content": "Page 10 with visual content: diagram, installation, procedure, maintenance",
+      "image_metadata": {
+        "image_id": "page_10",
+        "source_page": 10,
+        "file_path": "pdf_pages\\page_010.png",
+        "classification": "page_image",
+        "description": "Page 10 with visual content: diagram, installation, procedure, maintenance",
+        "properties": {
+          "visual_keywords": [
+            "diagram",
+            "installation",
+            "procedure",
+            "maintenance"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_11",
+      "source_type": "image",
+      "content": "Page 11 with visual content: installation, procedure, maintenance",
+      "image_metadata": {
+        "image_id": "page_11",
+        "source_page": 11,
+        "file_path": "pdf_pages\\page_011.png",
+        "classification": "page_image",
+        "description": "Page 11 with visual content: installation, procedure, maintenance",
+        "properties": {
+          "visual_keywords": [
+            "installation",
+            "procedure",
+            "maintenance"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "page_12",
+      "source_type": "image",
+      "content": "Page 12 with visual content: table",
+      "image_metadata": {
+        "image_id": "page_12",
+        "source_page": 12,
+        "file_path": "pdf_pages\\page_012.png",
+        "classification": "page_image",
+        "description": "Page 12 with visual content: table",
+        "properties": {
+          "visual_keywords": [
+            "table"
+          ],
+          "has_visual_content": true,
+          "dimensions": {
+            "width": 794,
+            "height": 1191
+          }
+        },
+        "confidence": 1.0,
+        "estimated_tokens": 170,
+        "extracted_from": "page_based_extraction"
+      },
+      "modality": "visual"
+    },
+    {
+      "chunk_id": "chunk_1",
+      "source_type": "technical_manual",
+      "content": "\u2019S .\n.\n, .\nand Follow All   and .\nKeep for future reference.\nto follow these  and instructions can result in serious injury or death to , especially children.\nNo under 5 are at highest  for .\nwatch children who are in or near this pool.\nYou can break your neck and be !\naway from  & If  or    is  or broken, your hair, body, Keep all  lines, , , and other  and  can get  into .\nYou could be held under water devices away from pool.\nDo not place pool near or under  & !\nDo not use pool if  or    is  or lines.\nbroken.\nYoung  From : or approved barrier around all sides of pool.\nor  laws or  may require  or other approved barriers.\nstate or  laws and  before setting up pool.\nand quickly.\nan  to  pool and wear provided water  .\nKeep children in your direct sight when they are in or near pool and when you are  and  pool.\nWhen searching for a  child, check pool first, even if you think your child is in the house.\npresents a  hazard even during  and  of the pool.\nconstant  of children and do not remove any safety barriers until the pool is completely empty and  away.\nto the list of barrier  and  as described in   No..\nan  to be  for watching children in the pool.\nthis person a \u201cwater \u201d  and ask that they wear it the entire time they are in charge of  children in the pool.\nIf they need to leave for any reason, ask this person to pass the \u201cwater \u201d  and the to another .\nand  in such a way that children cannot  on them to gain access to pool.\nYoung  From   to : pool  before leaving pool.\ncan   and get into pool.\nfurniture away from pool so that children cannot  and gain access to pool.\nWhen leaving pool, remove  and  from pool that might attract a child.\nBe  to  to an : Keep a working  and list of emergency  near pool.\nin   () so you can  to an emergency.\n: Keep all  lines, , , and other  devices away from pool.\nDo not place pool near or under   lines.\n: should never exceed the  flow rate marked on the  fitting.\n3 for     The  must comply with the  of the authority having  and may require permits for building,  , , Section I:  swimming pool etc.\nAn  swimming pool, including an , , or  pool, hot , or , should be provided with a barrier which  The pool shall be  a  distance of 6 .\n(1.\nm) from any  receptacle.\nwith the following:  All  , 15 and 20    within 20 .",
+      "original_text_length": 2282,
+      "chunk_index": 0,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_2",
+      "source_type": "technical_manual",
+      "content": "(6 m) of the pool shall be  by a ground    ().\nThe The top of the barrier should be at least   above  measured on the side of the barrier which faces away from the swimming pool.\n20 .\n(6 m) distance is measured  the  straight line distance the supply cord would follow without piercing a floor, wall, , , The    between  and the bottom of the barrier should be 4  measured on the side of the barrier which faces window, or other  barrier.\naway from the swimming pool.\nWhere the top of the pool structure is above , such as an  pool, the barrier may be at ground level, such as the pool structure, or mounted on top of the pool structure.\nWhere the barrier is mounted on top of the pool structure, the    to use of the pool, the  shall  all no  signs and safety signs in  with  instructions so they can be easily between the top of the pool structure and the bottom of the barrier should be 4 .\nvisible.\nin the barrier should not allow passage of a 4-  sphere.\nA barrier is necessary to provide protection against   and near  and that barriers are not a  for the constant barriers, which do not have , such as a  or stone wall, should not contain  or  except for   of children.\nand   joints.\nA list of emergency   shall be , such as the   , fire, , andor  .\nThese Where the barrier is composed of  and   and the distance between the  of the   is less than are to be kept near the  that is closest to the pool.\n, the   should be  on the swimming pool side of the .\nbetween   should not  , chairs, , or similar objects that a young child could  shall be at least 4 feet ( ) from the pool.\nexceed 134  in width.\nWhere there are  , spacing within the  should not exceed 134  in width.\nIf deck is used by the , it will need to comply with -8.\nWhere the barrier is composed of  and   and the distance between the  of the   is   or    , including one of the following, shall be on hand at all times: a.\nA light, strong,  pole (shepherd\u2019s ) not less more, spacing between   should not exceed 4 .\nWhere there are  , spacing within the  should not than 12 .\n(3.\nm) long.\nb.\nA  14 in.\n(6 )   as long as 112 times the  width of the pool or  feet (15.24 m), exceed 134  in width.\nwhichever is less, which has been firmly attached to a  -approved ring , or a  approved  devices.",
+      "original_text_length": 2263,
+      "chunk_index": 1,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_3",
+      "source_type": "technical_manual",
+      "content": "for chain link  should not exceed 134   unless the  is provided with   at the top or the  The swimming pool  is not  as a safety barrier.\nuse   during  pool use, to illuminate all safety signs, bottom which  the  to no more than 134 .\n, steps, deck  and walks.\nWhere the barrier is composed of  , such as a  , the  opening formed by the   should be  The pool is subject to wear and .\nIf not maintained , certain  of excessive or   can lead to failure no more than 134 .\nof the pool structure that might release large  of water that could cause bodily harm and property .\ngates to the pool should comply with Section I,  1 through 7, and should be  to  a locking .\nThe bottom of the pool shall be visible at all times from the outside  of the pool.\naccess gates should open outward, away from the pool, and should be self-closing and have a self- .\nother than  The  of the   shall  on the original or  , or on the pool structure, all safety signs in  with the pedestrian access gates should have a self- .\nWhere the release mechanism of the self-  is  less than \u2019s instructions.\nfrom the bottom of the , (a) the release mechanism should be  on the pool side of the  at least 3  below the top of the  and (b) the  and barrier should have no opening greater than 12  within 18  of the release mechanism.\nThe  shall be  on a solid base and the  shall be   the \u2019s instructions.\nWhere a wall of a dwelling serves as part of the barrier, one of the following should apply:   are  that describe the  of , , and  accidents.\nrelated to pool safety (a) All doors with direct access to the pool through that wall should be  with an alarm which produces an audible  when the door include the  of  and  \u2019 ()  entitled: The   to  Your and its , if present, are opened.\nThe alarm should sound  for a  of   within 7  after the door is  ,  \u2019t ,  and    for  and ,  of , and the opened.\nshould meet the  of  -   and , Section .\nThe alarm should   of -8    for   , , and  .\nhave a  sound   of   at 10 feet and the sound of the alarm should be  from other household sounds, such as smoke , , and door .\nThe alarm should   under all conditions.\nThe alarm should be  For additional safety information, see ...\nwith  means, such as  or , to   the alarm for a single opening of the door from either direction.",
+      "original_text_length": 2284,
+      "chunk_index": 2,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_4",
+      "source_type": "technical_manual",
+      "content": "Such  should last for no more than 15 .\nThe   or  should be  at least   above the threshold of the door.\n: If your  pool set do not have any  system, you can purchase .\nBut please make sure the (b) The pool should be  with a power safety  which  with  -  below.\ncan turn over total volume of pool water no less than once every 12 .\nYou can check the water capacity on  to select (c) Other means of protection, such as self-closing doors with self- devices, are  so long as the degree of protection afforded is system.\nprovided for the  of water shall be  by a     and  to  to not less than the protection afforded by (a) or (b) described above.\n.\nWhere an  pool structure is used as a barrier or where the barrier is mounted on top of the pool structure, and the means of access  make sure the selected    with the  should be  by a     and  to is a  or steps, then (a) the  to the pool or steps should be capable of being secured,  or removed to prevent access, or (b) the  to  .19.8 or its  standard -16, in order to prevent  .\nor steps should be surrounded by a barrier which  Section I,  1 through 9.\nWhen the  or steps are secured, , or removed, any opening created should not allow the passage of a 4-  sphere.\nSection :           4 B  a u  i i p e m rs e s n h t o o u r l s d i m be   r c o a b t j e e d c t s s o f r a o s m t o b e p i r n o g h i u b s it e p d e t r o m c a  n m e b n t t h s e  u b c a t r u r r  e r s s , .\nR (O E n S    E r   T S  A L & S o W n I l M y f M or  p   P  O w O it L h S a & w I a   T r E d R e  p A  T o  f  m A o L re S t W  I n M 3 M 6 I  in  .\n( P  O 4 O m L m & ) S )   () For further safety  check out the following : Only for  use.\n!\n..\nyour children to swim.\nwater.\n:.safety-.childwater.\nNever , , or  into the pool.\n..\nis always required.\n..\nshould learn .\nNever swim alone.",
+      "original_text_length": 1829,
+      "chunk_index": 3,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_5",
+      "source_type": "technical_manual",
+      "content": "Keep all  ,  and other  away from the swimming pool.\nWhen you touch the , , or  parts, be sure the ground You can be  injured.\nchildren at all times.\nunder your feet is \u201c \u201d.\nAll   should have a  and  should be a of 5 feet (1.\nm) from the outside  of the wall of the pool.\nFrom 510 feet (1.3.\nm), there should be either a fixed connection ( ) or  connection with a .\npower  to a 3- -type  only.\nKeep all  objects out of the pool .\nconsumption and pool  do not mix.\nNever allow anyone to swim,  or  under the influence of  or .\nshock could result if you  your  or  on a deck.\nThe  or  could fall into the water, causing severe shock or .\nDo not  on a deck or other surface at, above, or  below the top  of the pool.\nDo not use the pool during severe weather conditions, i.e.\n, , etc.\nBe aware of  power lines when  your pool or using a  pole.\nDo not allow , climbing, sitting, or standing on the top  of the .\nDo not allow  and .\nDo not engage in extended breath holding  ; you may black out and .\na pool (s) or staircase for  and  from the pool.\nKeep deck clean and clear of objects that may create a  hazard.\nregularly for signs of wear or loose bolts that could make the deck .\npool  about the proper use of all pool (s) and .\ngoing up or down.\nonly one person at a time on the .\nall nuts and bolts regularly to ensure that the   .\nor secure the  to prevent  to pool when not in use.\npool   or  for additional safety signs if deemed necessary.\nFor pool service, select a  pool professional.\nconnected to the  systems shall be  so as to prevent their being used as a means of access to the pool by young children.\n4 for     The  must comply with the  of the authority having  and may require permits for building,  , , Section I:  swimming pool etc.\nAn  swimming pool, including an , , or  pool, hot , or , should be provided with a barrier which  The pool shall be  a  distance of 6 .\n(1.\nm) from any  receptacle.\nwith the following:  All  , 15 and 20    within 20 .\n(6 m) of the pool shall be  by a ground    ().\nThe The top of the barrier should be at least   above  measured on the side of the barrier which faces away from the swimming pool.\n20 .",
+      "original_text_length": 2151,
+      "chunk_index": 4,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_6",
+      "source_type": "technical_manual",
+      "content": "(6 m) distance is measured  the  straight line distance the supply cord would follow without piercing a floor, wall, , , The    between  and the bottom of the barrier should be 4  measured on the side of the barrier which faces window, or other  barrier.\naway from the swimming pool.\nWhere the top of the pool structure is above , such as an  pool, the barrier may be at ground level, such as the pool structure, or mounted on top of the pool structure.\nWhere the barrier is mounted on top of the pool structure, the    to use of the pool, the  shall  all no  signs and safety signs in  with  instructions so they can be easily between the top of the pool structure and the bottom of the barrier should be 4 .\nvisible.\nin the barrier should not allow passage of a 4-  sphere.\nA barrier is necessary to provide protection against   and near  and that barriers are not a  for the constant barriers, which do not have , such as a  or stone wall, should not contain  or  except for   of children.\nand   joints.\nA list of emergency   shall be , such as the   , fire, , andor  .\nThese Where the barrier is composed of  and   and the distance between the  of the   is less than are to be kept near the  that is closest to the pool.\n, the   should be  on the swimming pool side of the .\nbetween   should not  , chairs, , or similar objects that a young child could  shall be at least 4 feet ( ) from the pool.\nexceed 134  in width.\nWhere there are  , spacing within the  should not exceed 134  in width.\nIf deck is used by the , it will need to comply with -8.\nWhere the barrier is composed of  and   and the distance between the  of the   is   or    , including one of the following, shall be on hand at all times: a.\nA light, strong,  pole (shepherd\u2019s ) not less more, spacing between   should not exceed 4 .\nWhere there are  , spacing within the  should not than 12 .\n(3.\nm) long.\nb.\nA  14 in.\n(6 )   as long as 112 times the  width of the pool or  feet (15.24 m), exceed 134  in width.\nwhichever is less, which has been firmly attached to a  -approved ring , or a  approved  devices.\nfor chain link  should not exceed 134   unless the  is provided with   at the top or the  The swimming pool  is not  as a safety barrier.\nuse   during  pool use, to illuminate all safety signs, bottom which  the  to no more than 134 .",
+      "original_text_length": 2314,
+      "chunk_index": 5,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_7",
+      "source_type": "technical_manual",
+      "content": ", steps, deck  and walks.\nWhere the barrier is composed of  , such as a  , the  opening formed by the   should be  The pool is subject to wear and .\nIf not maintained , certain  of excessive or   can lead to failure no more than 134 .\nof the pool structure that might release large  of water that could cause bodily harm and property .\ngates to the pool should comply with Section I,  1 through 7, and should be  to  a locking .\nThe bottom of the pool shall be visible at all times from the outside  of the pool.\naccess gates should open outward, away from the pool, and should be self-closing and have a self- .\nother than  The  of the   shall  on the original or  , or on the pool structure, all safety signs in  with the pedestrian access gates should have a self- .\nWhere the release mechanism of the self-  is  less than \u2019s instructions.\nfrom the bottom of the , (a) the release mechanism should be  on the pool side of the  at least 3  below the top of the  and (b) the  and barrier should have no opening greater than 12  within 18  of the release mechanism.\nThe  shall be  on a solid base and the  shall be   the \u2019s instructions.\nWhere a wall of a dwelling serves as part of the barrier, one of the following should apply:   are  that describe the  of , , and  accidents.\nrelated to pool safety (a) All doors with direct access to the pool through that wall should be  with an alarm which produces an audible  when the door include the  of  and  \u2019 ()  entitled: The   to  Your and its , if present, are opened.\nThe alarm should sound  for a  of   within 7  after the door is  ,  \u2019t ,  and    for  and ,  of , and the opened.\nshould meet the  of  -   and , Section .\nThe alarm should   of -8    for   , , and  .\nhave a  sound   of   at 10 feet and the sound of the alarm should be  from other household sounds, such as smoke , , and door .\nThe alarm should   under all conditions.\nThe alarm should be  For additional safety information, see ...\nwith  means, such as  or , to   the alarm for a single opening of the door from either direction.\nSuch  should last for no more than 15 .\nThe   or  should be  at least   above the threshold of the door.\n: If your  pool set do not have any  system, you can purchase .",
+      "original_text_length": 2218,
+      "chunk_index": 6,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_8",
+      "source_type": "technical_manual",
+      "content": "But please make sure the (b) The pool should be  with a power safety  which  with  -  below.\ncan turn over total volume of pool water no less than once every 12 .\nYou can check the water capacity on  to select (c) Other means of protection, such as self-closing doors with self- devices, are  so long as the degree of protection afforded is system.\nprovided for the  of water shall be  by a     and  to  to not less than the protection afforded by (a) or (b) described above.\n.\nWhere an  pool structure is used as a barrier or where the barrier is mounted on top of the pool structure, and the means of access  make sure the selected    with the  should be  by a     and  to is a  or steps, then (a) the  to the pool or steps should be capable of being secured,  or removed to prevent access, or (b) the  to  .19.8 or its  standard -16, in order to prevent  .\nor steps should be surrounded by a barrier which  Section I,  1 through 9.\nWhen the  or steps are secured, , or removed, any opening created should not allow the passage of a 4-  sphere.\nSection :           4 should be  so as to   ,    &    &   () or similar objects from being used to  the barriers.\n(Only for  & only for  with a water depth of more than  in.\n( )) For further safety  check out the following : Only for  use.\n..\nyour children to swim.\n:.safety-.childwater.\nNever , , or  into the pool.\n..\nis always required.\n..\nshould learn .\nNever swim alone.\nKeep all  ,  and other  away from the swimming pool.\nWhen you touch the , , or  parts, be sure the ground under your feet is \u201c \u201d.\nAll   should have a  and  should be a of 5 feet (1.\nm) from the outside  of the wall of the pool.\nFrom 510 feet (1.3.\nm), there should be either a fixed connection ( ) or  connection with a .\npower  to a 3- -type  only.\nKeep all  objects out of the pool .\nconsumption and pool  do not mix.\nNever allow anyone to swim,  or  under the influence of  or .\nshock could result if you  your  or  on a deck.\nThe  or  could fall into the water, causing severe shock or .\nDo not  on a deck or other surface at, above, or  below the top  of the pool.\nDo not use the pool during severe weather conditions, i.e.\n, , etc.\nBe aware of  power lines when  your pool or using a  pole.\nDo not allow , climbing, sitting, or standing on the top  of the .",
+      "original_text_length": 2286,
+      "chunk_index": 7,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_9",
+      "source_type": "technical_manual",
+      "content": "Do not allow  and .\nDo not engage in extended breath holding  ; you may black out and .\na pool (s) or staircase for  and  from the pool.\nKeep deck clean and clear of objects that may create a  hazard.\nregularly for signs of wear or loose bolts that could make the deck .\npool  about the proper use of all pool (s) and .\ngoing up or down.\nonly one person at a time on the .\nall nuts and bolts regularly to ensure that the   .\nor secure the  to prevent  to pool when not in use.\npool   or  for additional safety signs if deemed necessary.\nFor pool service, select a  pool professional.\nconnected to the  systems shall be  so as to prevent their being used as a means of access to the pool by young children.\n5 & the parts in your  to the parts  in this .\nthat the    the model that you had intended to purchase.\nIf any parts are  or  at the time of purchase, visit our  .support.\nA D B E I 14 .\nin.\n16 .\nin.\n18 .\nin.\n22 .\nin.\n(4.\nm    ) (4.\nm  1.\nm) (5.\nm  1.22 m) (6.\nm  1.\nm) A  A B  B D  D E  E I  I .\nin.\n2 6 The surface chosen to  the pool on must respect the following conditions: Because of the combined weight of the water inside the pool and the pool , it is extremely important that the surface chosen to  the pool on is capable of   the total weight for the entire time the pool is .\nWhen  the surface, take into consideration that water may come out of the pool when in use or when it .\nIf the water  the surface, it may lose its  to support the pool weight.\nthe position of the   andor the - regularly.\nThey must be on the same level as the bottom of the pool at all times.\nIf the or the -support  to sink into the ground,  the pool water immediately to avoid the pool  due to the uneven on the frame structure.\nthe  of the pool or  the surface material.\nThe surface must be flat and smooth.\nIf the surface is inclined or uneven, it can create an   on the structure of the pool.\nThis can  the  points of the  and bend the frame.\nIn the worst cases, the pool can , causing serious personal injury andor to personal property.\nWe recommend  the pool away from any objects children could use to  into the pool.\nthe pool near an adequate  system to deal with  or to empty the pool.",
+      "original_text_length": 2187,
+      "chunk_index": 8,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_10",
+      "source_type": "technical_manual",
+      "content": "the pool side with the water  A and B is  in the same direction of the power source, where the  system has to be connected.\nThe selected surface must be clear of any type of object.\nto the weight of the water, any object under the pool could  or  the bottom of the pool.\nThe selected surface must be clear of  plants and  species.\nThose  of strong  could grow through the  and create water .\nor other  that may cause  or  to  have to be  from the set-up .\nThe selected  must not have  power lines or trees.\nBe sure the  does not contain  utility , lines or of any kind.\nThe selected position must be far from house entrance.\nDo not position any  or other furniture around the pool.\nThe water that comes out of the pool during use or due to  faults can  furniture inside the house or surrounding the pool.\nThe selected surface must be flat and without  that can  the material of the .\nKeep at least 1.5  around the pool free of walls,  or other  to avoid  to the pool during use.\nset-up : grass, ground, , and all other  that respect the above set-up conditions.\nto avoid: , , , deck, , , , softloose soil or other surface that does not meet the above set-up conditions.\nwith your  city  for by-laws relating to , barriers,  and safety  and ensure you comply with all laws.\nIf a  andor  is included in the set,  to the 's andor 's  for safety instructions and .\nThe  must match the pool .\nIf during set up it is necessary to change the position of the pool,  up the  and do not drag it on the ground; the  between the material and the ground can  the pool .\nFollow the important instructions above to choose the  surface and  to set up your pool.\nparts of the pool, due to the fact that the set-up surface and  does not match the instructions, will not be considered as   and will avoid the  and any service claims.\nFor  instructions,  the    on the   or follow the  below.\nare for  purposes only.\nMay not reflect actual .\nNot to scale.\nof this pool can be completed without additional tools.\nis not  for caused to the pool due to  or failure to follow these instructions.\nTips: We strongly  opening the  and  the pool when the  temperature is above   .\nThe  material of the will be more  and easier to  in this .\nTo expedite the  process, we  setting the pool up with the help of 2-3 people.",
+      "original_text_length": 2291,
+      "chunk_index": 9,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_11",
+      "source_type": "technical_manual",
+      "content": "We  you buy a pool  (if one is not included in the set) and prepare it before setting up the pool, as it will help whenever you need to get inside it.\nthe  with : : Do not leave the pool  while  with water.\nthe pool situation by time during this operation.\nBe sure that the position of the   is not under the  and is  degrees to the surface.\nIt is highly recommended to use  water for  to   content, such as .\nDo not use sea water.\nthe pool with water after all  steps are completed and until the water  the  line, which  to  of the full capacity.\nDo not  as this could cause the pool to .\nIn the case of heavy , we strongly recommend  the water level to keep it at  capacity and avoid the  of water.\n: When the pool is  full, check that the distance between the water surface and the top of the  is the same all around.\nIf it is different, it means that the surface is not level, and we strongly recommend  the water and  the chosen .\nNever attempt to move the pool with water still in it.\n:  the pool full of water on  ground can cause the bursting of  points andor pool , causing serious personal injury andor  to property.\nYour pool may contain a great deal of .\nIf your pool has a  or uneven side, the sides may burst, suddenly  water and causing serious personal injury andor  to property.\nWhen the pool is  full, check the pool for any at the  or  and for any  water loss.\nDo not add any  to the water until this has been done.\n7 1 2 B 3 D E E with the  edge  outward.\n: The   must be  between the  and the  before the T-.\nThe  must be perpendicular to the ground in two directions.\n4 5 .\nin.\n(1 ) When the pool is filled with around .\nin.\n(1 ) of water, gently smooth out the bottom  to remove all folds.\nWe recommend starting from the  of the pool and continuing .\nYou can continue to fill the pool when the floor is smooth and -free.\n6 A B If the connection  for the pool's  A is composed of   and  : 1.\nthe  from  .\n2.\nthe  end of   through the  from the inside of the pool.\n3.\nthe  from the outside of the pool to attach   to the .\n4.\nand close the water  in the  position to complete the connection.\n8 7 2.\nin.\n- 7.9 in.\n(5  - 20 ) :  the position of the   at times while  the pool with water.",
+      "original_text_length": 2206,
+      "chunk_index": 10,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_12",
+      "source_type": "technical_manual",
+      "content": "The  can gradually change position due to increased water weight.\nIf the  are not perpendicular to the ground, please stop  the pool and  them.\nIt will help with weight  to avoid strain on the frame and .\nIf you do not  to the maintenance  below, your health might be at , especially that of your children.\nyour pool water clean and  balanced is necessary.\ncleaning the   is not enough for proper maintenance; we recommend you use pool  to  water chemistry and  or   (do not use ) with the chemical .\nquality is directly related to  of use, number of  and  maintenance of the pool.\nThe water should be changed every 3 days if there is no chemical treatment being performed with the water.\nIt is highly recommended to use  water for  to  the influence of  content, such as .\nWe recommend that you take a shower before using your pool, as  , , and other  on the skin can quickly water quality.\npool regularly to avoid settled dirt.\na  of water next to pool to clean \u2019 feet before entering pool.\nThe chemical maintenance must be performed with  or chemical ; 't throw chemical  directly in the water, the chemical will  on the bottom and  the material and  the .\n(Not ): Your  pool set may not include any ; in this case you can purchase one by visiting our  ..\nor at the  pool .\nthe chemical  from pool when the pool is in use.\nAfter  chemical maintenance and before using the pool, use a   (not included) to  the water chemistry.\nWe recommend your water chemical  as shown in the below table.\nvalue 7.4  7.6 2  4 None visible from  of  and  of pool water is not covered by the .\nOver usage of  will  the  and all points of the pool material; in worst cases, it will  the structure of the pool .\nare   and should be  with care.\nThere are serious health  from chemical  and the and  of chemical .\nyour  pool or chemical supply  for more information about chemical maintenance.\nclose attention to the chemical \u2019s instructions.\nThe  is used to  the water and to  small .\nIn order to keep your pool water clean and , you must also add .\nWe suggested that you buy a pool , if not included in the set, and  the pool when not in use, to prevent any  to the material on the top .\nclean any dirt  on the top  with a clean .\nBefore  the pool , ensure the water is at the  level.\nIf the water level is too low, the pool  should not be .",
+      "original_text_length": 2323,
+      "chunk_index": 11,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    },
+    {
+      "chunk_id": "chunk_13",
+      "source_type": "technical_manual",
+      "content": "9 & 1 2 3 For , follow the  inside the .\nare for  purposes only.\nMay not reflect actual .\nNot to scale.\nTo  your pool water, check   for  by-laws.\nthe pool  with  water, to remove any  of  or dirt completely.\nLeave the pool under the sunlight until it's completely dried.\nTo remove the remaining water completely, wipe the pool  with a dry .\nall ; be sure that pool  and  are completely clean and dry before the .\nIf the pool is not completely dry, may result and will  the pool  during the  period.\nOnce pool is completely dry,  with   to prevent pool from  together.\nWe strongly recommend  the pool when the  temperature is below   .\nthe pool  only if the  temperature is above   .\nthe pool in a dry place with a moderate temperature between and    and position the pool  and all  inside a  , to better protect the  material during the winter period.\nIn the event of a leak,  your pool using the   repair  provided.\nYou can find the instructions in  on the support of our , ..support.\n10 1.\nthe broken .\n1.\nthe water, fully clean and dry  to be repaired.\n2.\nthe  to be repaired.\n2.\nthe   from the     .\n3.\n.\n3.\nonly the  of  (not included) needed to  the repair .\n4.\nthe repair  to repaired  and smooth out any air .\n4.\nthe repair  firmly to repair  for  .\nfor  .\n5.\nminutes before use.\n5.\nminutes before use.\n\u2019 \u2019 (2.\nthe  of broken  5 ) :  is not included due to shipping .\nYou can find  or -  at most  .\nread the   and closely follow instructions on the back of before  the following repair steps.\n11 The  Company, .\nis a   of The  Company, ., used under .\nby () .,  S.\n, ,  ,   of America used in some countries under  from &  ., , by  ( )  .\nCompany , 7, East ,    ,   , , ..",
+      "original_text_length": 1681,
+      "chunk_index": 12,
+      "inferred_modality": "technical_manual",
+      "processing_method": "verbatim_extraction"
+    }
+  ],
+  "image_metadata": [
+    {
+      "image_id": "page_1",
+      "source_page": 1,
+      "file_path": "pdf_pages\\page_001.png",
+      "classification": "page_image",
+      "description": "Page 1 with visual content: ",
+      "properties": {
+        "visual_keywords": [],
+        "has_visual_content": false,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 0.5,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_2",
+      "source_page": 2,
+      "file_path": "pdf_pages\\page_002.png",
+      "classification": "page_image",
+      "description": "Page 2 with visual content: ",
+      "properties": {
+        "visual_keywords": [],
+        "has_visual_content": false,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 0.5,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_3",
+      "source_page": 3,
+      "file_path": "pdf_pages\\page_003.png",
+      "classification": "page_image",
+      "description": "Page 3 with visual content: installation, procedure",
+      "properties": {
+        "visual_keywords": [
+          "installation",
+          "procedure"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_4",
+      "source_page": 4,
+      "file_path": "pdf_pages\\page_004.png",
+      "classification": "page_image",
+      "description": "Page 4 with visual content: table, installation, parts, procedure, maintenance",
+      "properties": {
+        "visual_keywords": [
+          "table",
+          "installation",
+          "parts",
+          "procedure",
+          "maintenance"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_5",
+      "source_page": 5,
+      "file_path": "pdf_pages\\page_005.png",
+      "classification": "page_image",
+      "description": "Page 5 with visual content: table, installation, procedure",
+      "properties": {
+        "visual_keywords": [
+          "table",
+          "installation",
+          "procedure"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_6",
+      "source_page": 6,
+      "file_path": "pdf_pages\\page_006.png",
+      "classification": "page_image",
+      "description": "Page 6 with visual content: installation, parts, procedure",
+      "properties": {
+        "visual_keywords": [
+          "installation",
+          "parts",
+          "procedure"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_7",
+      "source_page": 7,
+      "file_path": "pdf_pages\\page_007.png",
+      "classification": "page_image",
+      "description": "Page 7 with visual content: diagram, installation, parts, procedure, maintenance",
+      "properties": {
+        "visual_keywords": [
+          "diagram",
+          "installation",
+          "parts",
+          "procedure",
+          "maintenance"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_8",
+      "source_page": 8,
+      "file_path": "pdf_pages\\page_008.png",
+      "classification": "page_image",
+      "description": "Page 8 with visual content: installation",
+      "properties": {
+        "visual_keywords": [
+          "installation"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_9",
+      "source_page": 9,
+      "file_path": "pdf_pages\\page_009.png",
+      "classification": "page_image",
+      "description": "Page 9 with visual content: table, installation, procedure, maintenance",
+      "properties": {
+        "visual_keywords": [
+          "table",
+          "installation",
+          "procedure",
+          "maintenance"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_10",
+      "source_page": 10,
+      "file_path": "pdf_pages\\page_010.png",
+      "classification": "page_image",
+      "description": "Page 10 with visual content: diagram, installation, procedure, maintenance",
+      "properties": {
+        "visual_keywords": [
+          "diagram",
+          "installation",
+          "procedure",
+          "maintenance"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_11",
+      "source_page": 11,
+      "file_path": "pdf_pages\\page_011.png",
+      "classification": "page_image",
+      "description": "Page 11 with visual content: installation, procedure, maintenance",
+      "properties": {
+        "visual_keywords": [
+          "installation",
+          "procedure",
+          "maintenance"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    },
+    {
+      "image_id": "page_12",
+      "source_page": 12,
+      "file_path": "pdf_pages\\page_012.png",
+      "classification": "page_image",
+      "description": "Page 12 with visual content: table",
+      "properties": {
+        "visual_keywords": [
+          "table"
+        ],
+        "has_visual_content": true,
+        "dimensions": {
+          "width": 794,
+          "height": 1191
+        }
+      },
+      "confidence": 1.0,
+      "estimated_tokens": 170,
+      "extracted_from": "page_based_extraction"
+    }
+  ],
+  "total_chunks": 25,
+  "total_images": 12
+}

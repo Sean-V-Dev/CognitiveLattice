@@ -1,0 +1,156 @@
+{
+  "description": "Sample extraction configuration for massive JSON processing",
+  "configurations": {
+    "fda_pharmaceutical": {
+      "description": "Configuration optimized for FDA pharmaceutical databases",
+      "primary_text_fields": [
+        "brand_name",
+        "generic_name", 
+        "active_ingredient",
+        "indication",
+        "contraindications",
+        "warnings",
+        "dosage_and_administration",
+        "pediatric_use",
+        "adverse_reactions"
+      ],
+      "metadata_fields": [
+        "ndc",
+        "application_number",
+        "manufacturer",
+        "approval_date",
+        "therapeutic_equivalence_code"
+      ],
+      "max_text_length": 8000,
+      "concatenate_all_text": true,
+      "include_structure_info": true,
+      "preserve_original": false
+    },
+    
+    "generic_api": {
+      "description": "Generic configuration for API JSON responses",
+      "primary_text_fields": [
+        "name",
+        "title", 
+        "description",
+        "content",
+        "text",
+        "summary",
+        "body"
+      ],
+      "metadata_fields": [
+        "id",
+        "type",
+        "category",
+        "date",
+        "author",
+        "source",
+        "tags"
+      ],
+      "max_text_length": 5000,
+      "concatenate_all_text": true,
+      "include_structure_info": true,
+      "preserve_original": false
+    },
+    
+    "scientific_papers": {
+      "description": "Configuration for scientific paper databases",
+      "primary_text_fields": [
+        "title",
+        "abstract", 
+        "introduction",
+        "methodology",
+        "results",
+        "discussion",
+        "conclusion",
+        "keywords"
+      ],
+      "metadata_fields": [
+        "doi",
+        "authors",
+        "journal",
+        "publication_date",
+        "citation_count",
+        "subject_categories"
+      ],
+      "max_text_length": 10000,
+      "concatenate_all_text": false,
+      "include_structure_info": true,
+      "preserve_original": false
+    },
+    
+    "legal_documents": {
+      "description": "Configuration for legal document databases",
+      "primary_text_fields": [
+        "case_name",
+        "summary",
+        "opinion",
+        "ruling",
+        "legal_reasoning",
+        "precedents_cited",
+        "dissenting_opinion"
+      ],
+      "metadata_fields": [
+        "case_number",
+        "court",
+        "date_decided",
+        "judges",
+        "legal_citations",
+        "jurisdiction"
+      ],
+      "max_text_length": 12000,
+      "concatenate_all_text": true,
+      "include_structure_info": true,
+      "preserve_original": false
+    }
+  },
+  
+  "usage_examples": {
+    "command_line": [
+      "python fda_json_integration.py --file fda_data.json --config sample_extraction_config.json",
+      "python massive_json_processor.py --directory ./massive_json_files/ --chunk-size 500"
+    ],
+    "programmatic": [
+      "processor = MassiveJSONProcessor(chunk_size=1000)",
+      "config = load_config('sample_extraction_config.json')['configurations']['fda_pharmaceutical']",
+      "results = processor.process_single_file('massive_file.json', extraction_config=config)"
+    ]
+  },
+  
+  "field_descriptions": {
+    "primary_text_fields": "Fields containing the main textual content to extract and process",
+    "metadata_fields": "Fields to preserve as structured metadata (not included in main text)",
+    "max_text_length": "Maximum character length for extracted text chunks",
+    "concatenate_all_text": "If true, include all string fields when primary fields are not found",
+    "include_structure_info": "If true, add JSON structure metadata to each chunk",
+    "preserve_original": "If true, keep the complete original JSON record (increases memory usage)"
+  },
+  
+  "scaling_recommendations": {
+    "small_files": {
+      "description": "Files under 100MB",
+      "chunk_size": 2000,
+      "max_text_length": 5000,
+      "preserve_original": true
+    },
+    "medium_files": {
+      "description": "Files 100MB - 1GB", 
+      "chunk_size": 1000,
+      "max_text_length": 8000,
+      "preserve_original": false
+    },
+    "large_files": {
+      "description": "Files 1GB - 10GB",
+      "chunk_size": 500,
+      "max_text_length": 6000,
+      "preserve_original": false
+    },
+    "massive_files": {
+      "description": "Files over 10GB (like your FDA files)",
+      "chunk_size": 250,
+      "max_text_length": 4000,
+      "preserve_original": false,
+      "additional_notes": "Consider processing in multiple passes with different extraction focuses"
+    }
+  }
+}

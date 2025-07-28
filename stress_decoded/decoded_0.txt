@@ -1,1 +1,0 @@
-Install firmware into unit seven then reboot for diagnostics.
