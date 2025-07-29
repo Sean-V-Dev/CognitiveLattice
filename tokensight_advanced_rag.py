@@ -1,5 +1,10 @@
 """
-Integration layer for TokenSight's new Bidirectional RAG System
+Integration layer for TokenSight's new Bidirectional RAG        # 1. Find relevant chunks using the bidirectional RAG system
+        local_search_results = self.bidirectional_rag.search(
+            query, 
+            top_k=max_chunks,
+            similarity_threshold=0.2  # Adjust as needed
+        )m
 Provides backward compatibility while enabling advanced multi-RAG capabilities
 """
 
@@ -55,74 +60,89 @@ class TokenSightAdvancedRAG:
                       enable_external_enhancement: bool = True,
                       safety_threshold: float = 0.7) -> Dict[str, Any]:
         """
-        Enhanced query processing with external API enhancement and audit
+        Enhanced query processing with bidirectional RAG and external API integration
         """
         print(f"🔍 Processing enhanced query: {query}")
         
-        # Step 1: Query local RAG systems
-        rag_results = self.rag_system.query_with_routing(query, max_chunks)
+        # 1. Find relevant chunks using the bidirectional RAG system
+        local_search_results = self.rag_system.query_with_routing(
+            query, 
+            max_chunks=10 # Increased from 5 to 10
+            # similarity_threshold parameter not available in this method
+        )
+        relevant_chunks = local_search_results.get("results", [])
         
-        if not rag_results["results"]:
+        if not relevant_chunks:
+            print("⚠️ No relevant local chunks found.")
             return {
                 "query": query,
-                "local_results": rag_results,
-                "external_analysis": None,
-                "audit_results": None,
-                "status": "no_relevant_content_found"
+                "local_results": local_search_results,
+                "external_analysis": {"error": "No local content to analyze."},
+                "safety_status": "not_applicable",
+                "audit_results": None
             }
-        
-        # Step 2: External API enhancement (if enabled and available)
+
+        # 2. If external enhancement is enabled, send relevant chunks to the API
         external_analysis = None
         if enable_external_enhancement and self.external_client:
-            try:
-                # Prepare chunks for external analysis
-                relevant_chunks = rag_results["results"]
-                
-                # Determine analysis type based on content
-                analysis_type = self._determine_analysis_type(query, relevant_chunks)
-                
-                print(f"🌐 Sending to external API for {analysis_type} analysis...")
-                external_analysis = self.external_client.analyze_multiple_chunks(
-                    relevant_chunks, 
-                    analysis_type=analysis_type
-                )
-                
-            except Exception as e:
-                print(f"⚠️ External API analysis failed: {e}")
-                external_analysis = {"error": str(e)}
-        
-        # Step 3: Audit external response (if available)
-        audit_results = None
-        if external_analysis and not external_analysis.get("error"):
-            # Extract response text from external analysis
-            response_text = self._extract_response_text(external_analysis)
-            
-            if response_text:
-                audit_results = self.rag_system.audit_external_response(
-                    response_text, 
-                    rag_results["results"], 
-                    query
-                )
-                
-                # Check if audit passes safety threshold
-                if not audit_results.get("audit_passed", False):
-                    print("⚠️ Response failed safety audit - flagging for review")
-        
-        # Compile complete response
-        complete_response = {
+            analysis_type = self._determine_analysis_type(query, relevant_chunks)
+            print(f"🌐 Sending to external API for {analysis_type} analysis...")
+            # This call returns a list of results, one for each chunk
+            external_analysis_results = self.external_client.analyze_multiple_chunks(
+                relevant_chunks, 
+                analysis_type=analysis_type
+            )
+            # Synthesize a single, user-friendly answer from all chunk analyses
+            if external_analysis_results:
+                print(f"✅ Completed external analysis of {len(external_analysis_results)} chunks")
+                summary_result = self.external_client.summarize_analyses(external_analysis_results, query)
+                summary_text = summary_result.get("summary_text")
+                # Combine audit results from all chunks (as before)
+                final_audit = {"audit_passed": True, "safety_audit": {"risk_level": "low", "details": []}}
+                for res in external_analysis_results:
+                    audit = res.get('audit_results', {})
+                    if not audit.get('audit_passed', True):
+                        final_audit['audit_passed'] = False
+                    if audit.get('safety_audit', {}).get('risk_level') == 'high':
+                        final_audit['safety_audit']['risk_level'] = 'high'
+                external_analysis = {
+                    "enhanced_answer": summary_text,
+                    "audit_results": final_audit,
+                    "raw_results": external_analysis_results,
+                    "summary_result": summary_result
+                }
+            else:
+                print("⚠️ External analysis returned no results.")
+                external_analysis = {"error": "No results from external API."}
+
+        # 3. Final response construction
+        final_response = {
             "query": query,
-            "local_results": rag_results,
+            "local_results": local_search_results,
             "external_analysis": external_analysis,
-            "audit_results": audit_results,
-            "safety_status": self._determine_safety_status(audit_results, safety_threshold),
-            "processing_timestamp": "now",
-            "response_id": f"ts_{len(self.processing_history)}"
+            "safety_status": "safe",  # Default, can be updated by audit
+            "audit_results": None # This will be populated by the final audit
         }
+
+        # 4. Perform safety audit on the final combined response
+        if external_analysis and not external_analysis.get("error"):
+            # Use the aggregated audit results from the external analysis
+            final_response["audit_results"] = external_analysis.get("audit_results")
+            if final_response["audit_results"] and not final_response["audit_results"].get("audit_passed"):
+                final_response["safety_status"] = "failed_audit"
         
-        # Store in processing history
-        self.processing_history.append(complete_response)
-        
-        return complete_response
+        # Fallback audit if external analysis failed or was disabled
+        if not final_response.get("audit_results"):
+            # Create a synthesized answer from local results if no external answer exists
+            synthesized_answer = " ".join([chunk.get('content', '') for chunk in relevant_chunks])
+            final_response["audit_results"] = self.rag_system.safety_auditor.audit_response(
+                query, 
+                final_response.get("external_analysis", {}).get("enhanced_answer") or synthesized_answer
+            )
+            if not final_response["audit_results"]["audit_passed"]:
+                final_response["safety_status"] = "failed_audit"
+                
+        return final_response
     
     def _determine_analysis_type(self, query: str, chunks: List[Dict]) -> str:
         """Determine the best external analysis type based on content"""

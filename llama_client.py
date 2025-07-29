@@ -149,19 +149,28 @@ def diagnose_user_intent(user_query, server_url="http://localhost:8080/completio
         server_url: URL of the LLaMA server.
 
     Returns:
-        A dictionary with 'intent' ('broad' or 'specific') and 'action' (e.g., 'summarize', 'query').
+        A dictionary with 'intent' and 'action'.
     """
-    prompt = f"""[INST] Analyze the user's request to determine if it is 'broad' or 'specific'.
-A 'broad' request asks for a summary, overview, or analysis of the entire document.
-A 'specific' request asks a targeted question about a particular detail.
+    prompt = f"""[INST] Analyze the user's request to determine the type of request and action needed.
 
-Also, identify the primary action requested (e.g., 'summarize', 'query', 'extract').
+Intent Types:
+- "chat": Simple conversational question or greeting (e.g., "How are you?", "What's the weather like?")
+- "query": Simple factual question that doesn't require document analysis (e.g., "How is Myrtle Beach this time of year?")
+- "analysis": Request to analyze, summarize, or extract information from a document
+- "broad": Request for overall summary or analysis of entire document
+- "task": Complex structured task requiring multiple steps (e.g., "Plan a trip", "Create a business plan")
+
+Action Types:
+- "chat": Conversational response
+- "query": Simple question answering
+- "analyze": Analyze document content
+- "summarize": Summarize document
+- "extract": Extract specific information
+- "plan": Create a multi-step plan
 
 User Request: "{user_query}"
 
 Respond with a JSON object with two keys: "intent" and "action".
-- "intent" should be either "broad" or "specific".
-- "action" should be a short verb describing the task.
 
 JSON Response:[/INST]"""
 
@@ -174,21 +183,30 @@ JSON Response:[/INST]"""
         intent_data = json.loads(response_text)
         if isinstance(intent_data, dict) and "intent" in intent_data and "action" in intent_data:
             # Basic validation
-            if intent_data.get("intent") not in ["broad", "specific"]:
-                intent_data["intent"] = "specific" # Default to specific
+            valid_intents = ["chat", "query", "analysis", "broad", "task"]
+            if intent_data.get("intent") not in valid_intents:
+                intent_data["intent"] = "query" # Default to simple query
             return intent_data
         else:
             # Fallback if JSON is not as expected
             print("⚠️ Intent diagnosis returned malformed JSON, falling back.")
             if "summarize" in user_query.lower() or "overview" in user_query.lower():
                 return {"intent": "broad", "action": "summarize"}
-            return {"intent": "specific", "action": "query"}
+            elif "plan" in user_query.lower() or "help me" in user_query.lower():
+                return {"intent": "task", "action": "plan"}
+            elif any(word in user_query.lower() for word in ["hello", "hi", "how are you", "thanks", "thank you"]):
+                return {"intent": "chat", "action": "chat"}
+            return {"intent": "query", "action": "query"}
     except json.JSONDecodeError:
         # Fallback for non-JSON response
         print("⚠️ Intent diagnosis failed (not JSON), falling back.")
         if "summarize" in user_query.lower() or "overview" in user_query.lower():
             return {"intent": "broad", "action": "summarize"}
-        return {"intent": "specific", "action": "query"}
+        elif "plan" in user_query.lower() or "help me" in user_query.lower():
+            return {"intent": "task", "action": "plan"}
+        elif any(word in user_query.lower() for word in ["hello", "hi", "how are you", "thanks", "thank you"]):
+            return {"intent": "chat", "action": "chat"}
+        return {"intent": "query", "action": "query"}
 
 
 def extract_key_facts(summary_text, doc_type):

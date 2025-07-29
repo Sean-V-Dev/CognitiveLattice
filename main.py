@@ -1,7 +1,346 @@
-# Standard library
+import re
 import os
 import json
+import traceback
+from typing import List, Dict, Any
 from datetime import datetime
+
+# === Cognitive Lattice and Session Manager === #
+class CognitiveLattice:
+    """
+    Hybrid lattice with active task state + event log for audit trail.
+    Maintains single source of truth for current state while preserving full history.
+    """
+    def __init__(self, session_id=None):
+        if session_id:
+            self.session_id = session_id
+        else:
+            # Generate a unique session ID if not provided
+            self.session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # New hybrid structure
+        self.active_task_state = None  # Single current task state
+        self.event_log = []  # Historical events
+        self.nodes = []  # Legacy compatibility
+        self.session_file = f"cognitive_lattice_{self.session_id}.json"
+        self.load()
+
+    def add_node(self, node):
+        """Legacy compatibility - adds to event log instead"""
+        self.add_event(node)
+
+    def add_event(self, event):
+        """Add an event to the audit trail"""
+        event["timestamp"] = event.get("timestamp", datetime.now().isoformat())
+        self.event_log.append(event)
+
+    def update_active_task(self, task_data):
+        """Update the active task state (single source of truth)"""
+        task_data["last_updated"] = datetime.now().isoformat()
+        self.active_task_state = task_data
+        
+        # Log this update as an event
+        self.add_event({
+            "type": "task_state_updated",
+            "timestamp": datetime.now().isoformat(),
+            "action": task_data.get("action", "update"),
+            "step_number": len(task_data.get("completed_steps", [])),
+            "user_input": task_data.get("query", "")
+        })
+
+    def create_new_task(self, query, task_plan=None):
+        """Create a new active task and log the creation event"""
+        self.active_task_state = {
+            "task_title": f"Structured Task: {query[:50]}...",
+            "status": "in_progress",
+            "query": query,
+            "task_plan": task_plan or [],
+            "completed_steps": [],
+            "created": datetime.now().isoformat(),
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        # Log task creation event
+        self.add_event({
+            "type": "task_creation",
+            "timestamp": datetime.now().isoformat(),
+            "query": query
+        })
+        
+        if task_plan:
+            self.add_event({
+                "type": "plan_generated",
+                "timestamp": datetime.now().isoformat(),
+                "plan": task_plan
+            })
+        
+        return self.active_task_state
+
+    def complete_current_task(self):
+        """Mark the current task as completed"""
+        if self.active_task_state:
+            self.active_task_state["status"] = "completed"
+            self.active_task_state["completed_at"] = datetime.now().isoformat()
+            
+            # Log completion event
+            self.add_event({
+                "type": "task_completed",
+                "timestamp": datetime.now().isoformat(),
+                "task_title": self.active_task_state.get("task_title", "Unknown"),
+                "total_steps": len(self.active_task_state.get("task_plan", [])),
+                "completed_steps": len(self.active_task_state.get("completed_steps", []))
+            })
+            
+            # Move to event log and clear active state
+            completed_task_event = {
+                "type": "archived_task",
+                "timestamp": datetime.now().isoformat(),
+                "task_data": self.active_task_state.copy()
+            }
+            self.add_event(completed_task_event)
+            self.active_task_state = None
+
+    def execute_step(self, step_number, user_input, result):
+        """Execute a step and update the active task state"""
+        if not self.active_task_state:
+            return False
+            
+        # Update the completed_steps in active state
+        completed_steps = self.active_task_state.get("completed_steps", [])
+        
+        # Find if we're updating an existing step or creating a new one
+        step_index = step_number - 1
+        if step_index < len(completed_steps):
+            # Update existing step
+            completed_steps[step_index].update({
+                "user_input": user_input,
+                "result": result,
+                "last_updated": datetime.now().isoformat(),
+                "status": "in_progress"
+            })
+        else:
+            # Create new step
+            task_plan = self.active_task_state.get("task_plan", [])
+            step_description = task_plan[step_index] if step_index < len(task_plan) else f"Step {step_number}"
+            
+            new_step = {
+                "step_number": step_number,
+                "description": step_description,
+                "user_input": user_input,
+                "result": result,
+                "timestamp": datetime.now().isoformat(),
+                "status": "in_progress"
+            }
+            completed_steps.append(new_step)
+        
+        self.active_task_state["completed_steps"] = completed_steps
+        self.active_task_state["last_updated"] = datetime.now().isoformat()
+        
+        # Log the step execution event
+        self.add_event({
+            "type": "step_execution",
+            "timestamp": datetime.now().isoformat(),
+            "step_number": step_number,
+            "user_input": user_input,
+            "result": result[:100] + "..." if len(result) > 100 else result
+        })
+        
+        return True
+
+    def mark_step_completed(self, step_number):
+        """Mark a specific step as completed"""
+        if not self.active_task_state:
+            return False
+            
+        completed_steps = self.active_task_state.get("completed_steps", [])
+        step_index = step_number - 1
+        
+        if step_index < len(completed_steps):
+            completed_steps[step_index]["status"] = "completed"
+            self.active_task_state["last_updated"] = datetime.now().isoformat()
+            
+            # Log step completion
+            self.add_event({
+                "type": "step_completed",
+                "timestamp": datetime.now().isoformat(),
+                "step_number": step_number,
+                "description": completed_steps[step_index].get("description", f"Step {step_number}")
+            })
+            return True
+        return False
+
+    def get_nodes(self, node_type=None):
+        """Legacy compatibility - returns relevant events from event log"""
+        if node_type == "task":
+            # Return the active task as a node if it exists
+            if self.active_task_state:
+                return [self.active_task_state]
+            else:
+                return []
+        else:
+            # Return matching events from event log
+            if node_type:
+                return [event for event in self.event_log if event.get("type") == node_type]
+            return self.event_log
+
+    def cleanup_malformed_tasks(self):
+        """Clean up malformed active task"""
+        if self.active_task_state:
+            task = self.active_task_state
+            # Check for tasks without proper structure
+            if not task.get("task_plan") or not isinstance(task.get("task_plan"), list) or len(task.get("task_plan", [])) == 0:
+                print(f"🧹 Cleaning up malformed active task: {task.get('task_title', 'Untitled')[:30]}...")
+                self.complete_current_task()  # Archive it
+                self.add_event({
+                    "type": "task_cleanup",
+                    "timestamp": datetime.now().isoformat(),
+                    "reason": "No valid task plan"
+                })
+                print(f"🧹 Malformed task archived")
+
+    def get_active_task(self):
+        """Returns the current active task (single source of truth)"""
+        if self.active_task_state and self.active_task_state.get("status") in ["pending", "in_progress"]:
+            return self.active_task_state
+        return None
+
+    def update_node(self, node_index, updates):
+        """Updates a specific node in the lattice."""
+        if 0 <= node_index < len(self.nodes):
+            self.nodes[node_index].update(updates)
+            return True
+        return False
+
+    def get_task_progress(self, task_node):
+        """Calculates and returns the progress of a given task."""
+        if not task_node or "task_plan" not in task_node:
+            return {"total_steps": 0, "completed_steps": 0, "progress_percent": 0}
+        
+        total_steps = len(task_node["task_plan"])
+        completed_steps = len(task_node.get("completed_steps", []))
+        progress_percent = (completed_steps / total_steps) * 100 if total_steps > 0 else 0
+        
+        return {
+            "total_steps": total_steps,
+            "completed_steps": completed_steps,
+            "progress_percent": progress_percent
+        }
+
+    def save(self, path=None):
+        """Saves the hybrid lattice structure to JSON file."""
+        file_path = path if path else self.session_file
+        
+        # Create the hybrid structure
+        lattice_data = {
+            "active_task_state": self.active_task_state,
+            "event_log": self.event_log
+        }
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(lattice_data, f, indent=2, ensure_ascii=False)
+
+    def load(self, path=None):
+        """Loads the hybrid lattice structure from JSON file."""
+        file_path = path if path else self.session_file
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    if os.path.getsize(file_path) > 0:
+                        data = json.load(f)
+                        
+                        # Check if it's the new hybrid format
+                        if isinstance(data, dict) and "active_task_state" in data:
+                            self.active_task_state = data.get("active_task_state")
+                            self.event_log = data.get("event_log", [])
+                            self.nodes = []  # Legacy compatibility
+                        else:
+                            # Legacy format - convert to new format
+                            print("🔄 Converting legacy lattice format to hybrid format...")
+                            self.nodes = data if isinstance(data, list) else []
+                            self.active_task_state = None
+                            self.event_log = []
+                            
+                            # Find the most recent active task and convert
+                            for node in reversed(self.nodes):
+                                if node.get("type") == "task" and node.get("status") in ["pending", "in_progress"]:
+                                    self.active_task_state = {
+                                        "task_title": node.get("task_title", "Converted Task"),
+                                        "status": node.get("status", "in_progress"),
+                                        "query": node.get("query", ""),
+                                        "task_plan": node.get("task_plan", []),
+                                        "completed_steps": node.get("completed_steps", []),
+                                        "created": node.get("timestamp", datetime.now().isoformat()),
+                                        "last_updated": datetime.now().isoformat()
+                                    }
+                                    break
+                            
+                            # Convert all nodes to events
+                            for node in self.nodes:
+                                event_type = node.get("type", "unknown")
+                                if event_type == "task":
+                                    event_type = "task_interaction"
+                                
+                                self.event_log.append({
+                                    "type": event_type,
+                                    "timestamp": node.get("timestamp", datetime.now().isoformat()),
+                                    "legacy_data": node
+                                })
+                            
+                            # Save in new format
+                            self.save()
+                            print(f"✅ Converted {len(self.nodes)} legacy nodes to hybrid format")
+                            
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"⚠️ Could not load or parse lattice file '{file_path}': {e}")
+                self.active_task_state = None
+                self.event_log = []
+                self.nodes = []
+        else:
+            self.active_task_state = None
+            self.event_log = []
+            self.nodes = []
+
+class SessionManager:
+    """
+    Manages session-wide state, including the cognitive lattice and session file.
+    """
+    def __init__(self, session_file=None):
+        if session_file:
+            self.session_file = session_file
+        else:
+            self.session_file = f"cognitive_lattice_interactive_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        self.lattice = CognitiveLattice(session_id=os.path.splitext(os.path.basename(self.session_file))[0])
+        self.session_data = {"queries": []}
+        if os.path.exists(self.session_file):
+            try:
+                with open(self.session_file, 'r', encoding='utf-8') as f:
+                    if os.path.getsize(self.session_file) > 0:
+                        self.session_data = json.load(f)
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"⚠️ Could not load or parse session file '{self.session_file}': {e}")
+                self.session_data = {"queries": []}
+
+    def add_query(self, query_node):
+        self.session_data["queries"].append(query_node)
+        self.save()
+
+    def add_lattice_node(self, node):
+        """Legacy compatibility - converts to event and updates active task if needed"""
+        if node.get("type") == "task":
+            # This is a task update - update the active task state
+            self.lattice.update_active_task(node)
+        else:
+            # This is a regular event - add to event log
+            self.lattice.add_event(node)
+        self.lattice.save()
+
+    def save(self):
+        with open(self.session_file, 'w', encoding='utf-8') as f:
+            json.dump(self.session_data, f, indent=2, ensure_ascii=False)
+
+    def get_lattice(self):
+        return self.lattice
 
 # Local modules
 from utils.dictionary_manager import expand_dictionary, clean_input
@@ -29,6 +368,10 @@ with open(key_path, "r") as f:
 
 # === Main function for all executable code === #
 def main():
+    # === Initialize session manager and cognitive lattice === #
+    session_manager = SessionManager()
+    print(f"🧠 Cognitive Lattice initialized for session: {session_manager.lattice.session_id}")
+
     print("📋 TokenSight Enhanced PDF Processing")
     print("=" * 50)
     
@@ -62,7 +405,7 @@ def main():
                 last_source = f.read().strip()
             if last_source == source_input:
                 regenerate_needed = False
-                print("� Using existing decoded.txt (same source)")
+                print("♻️ Using existing decoded.txt (same source)")
             else:
                 print(f"🔄 Source changed from {last_source} to {source_input} - regenerating...")
         except:
@@ -308,7 +651,7 @@ def main():
             
             # Display results summary (local only)
             print(f"   📊 Found {len(result['local_results']['results'])} relevant chunks")
-            print(f"   � Local processing only (no external API calls)")
+            print(f"   🔒 Local processing only (no external API calls)")
             print(f"   🛡️ Safety status: {result.get('safety_status', 'unknown')}")
             
             if result.get('audit_results'):
@@ -324,7 +667,6 @@ def main():
         
     except Exception as e:
         print(f"⚠️ Advanced RAG system error: {e}")
-        import traceback
         traceback.print_exc()
         print("   Falling back to legacy processing...")
     # === Interactive User-Driven Analysis ===
@@ -340,100 +682,331 @@ def main():
                 print("✅ Exiting interactive session.")
                 break
 
-            # 1. Diagnose user intent using local LLM
-            print("🧠 Diagnosing user intent...")
-            intent_info = diagnose_user_intent(user_query)
-            intent = intent_info.get("intent", "specific")
-            action = intent_info.get("action", "query")
-            print(f"   - Intent: {intent}, Action: {action}")
-
-            if intent == 'broad':
-                # 2a. Broad Intent: Use all chunks for analysis
-                print(f"🎯 Broad request detected. Sending all {len(chunk_storage)} chunks to external API for '{action}'.")
-
-                # Use the advanced RAG system's external client for consistency
-                if 'advanced_rag' in locals() and advanced_rag and hasattr(advanced_rag, 'external_api_client') and advanced_rag.external_api_client:
-                    print(f"🌐 Using external API client for {action} analysis...")
-                    # The 'action' can be passed as the analysis_type
-                    external_results = advanced_rag.external_api_client.analyze_multiple_chunks(
-                        chunk_storage,
-                        analysis_type=action # e.g., 'summarize', 'analyze'
-                    )
-                    save_external_analysis_results(external_results, f"external_analysis_{action}.json")
-                    
-                    # Display a summary of the results
-                    if external_results:
-                        print("\n✅ External API Analysis Complete:")
-                        # Display the summary from the first result
-                        first_result = external_results[0].get("external_analysis", {})
-                        summary = first_result.get("summary", "No summary available.")
-                        print(f"   📄 Summary: {summary[:1000]}...")
-                        
-                        # If multiple results, show count
-                        if len(external_results) > 1:
-                            print(f"   📊 Total results: {len(external_results)} chunk analyses")
-                    else:
-                        print("   ⚠️ No results returned from external analysis.")
-
-                else:
-                    print("   ⚠️ Advanced RAG system with external API not available for broad analysis.")
-                    # Fallback to legacy external API client
-                    try:
-                        api_client = ExternalAPIClient(api_provider="openai")
-                        external_results = api_client.analyze_multiple_chunks(
-                            chunk_storage,
-                            analysis_type=action
-                        )
-                        save_external_analysis_results(external_results, f"external_analysis_{action}.json")
-                        
-                        if external_results:
-                            print("\n✅ Legacy External API Analysis Complete:")
-                            first_result = external_results[0].get("external_analysis", {})
-                            summary = first_result.get("summary", "No summary available.")
-                            print(f"   📄 Summary: {summary[:1000]}...")
-                        else:
-                            print("   ⚠️ No results returned from legacy external analysis.")
-                    except Exception as fallback_error:
-                        print(f"   ❌ Fallback external API also failed: {fallback_error}")
-
-            elif intent == 'specific':
-                # 2b. Specific Intent: Use Advanced RAG for a targeted query
-                print(f"🎯 Specific request detected. Using Advanced RAG to find relevant chunks and enhance with external API.")
+            # 1. Check for active task FIRST - this creates a "task lock"
+            # Clean up any malformed tasks first
+            session_manager.lattice.cleanup_malformed_tasks()
+            
+            active_task = session_manager.lattice.get_active_task()
+            
+            # DEBUG: Show task status
+            all_tasks = session_manager.lattice.get_nodes("task")
+            if all_tasks:
+                print(f"🔍 DEBUG: Found {len(all_tasks)} total tasks in lattice")
+                for i, task in enumerate(all_tasks):
+                    status = task.get("status", "unknown")
+                    title = task.get("task_title", task.get("query", "Unknown"))[:50]
+                    has_plan = "task_plan" in task and len(task.get("task_plan", [])) > 0
+                    completed_count = len(task.get("completed_steps", []))
+                    print(f"   Task {i+1}: {title}... (status: {status}, has_plan: {has_plan}, completed: {completed_count})")
+            
+            if active_task:
+                print(f"🔒 ACTIVE TASK FOUND: {active_task.get('task_title', 'Untitled')[:50]}...")
+            else:
+                print(f"🔓 NO ACTIVE TASK FOUND")
+            
+            if active_task:
+                # TASK LOCK: When a task is active, ALL input is treated as task-related
+                task_progress = session_manager.lattice.get_task_progress(active_task)
+                print(f"� Task Lock Active: {task_progress['completed_steps']}/{task_progress['total_steps']} steps completed")
                 
-                # First, check if we have existing external analysis to leverage
+                # Force intent to be "task" - bypass all other intent diagnosis
+                intent = "task"
+                action = "step_input"
+                
+                # Only check for explicit continuation keywords
+                continue_keywords = ["continue", "next", "proceed", "go ahead", "keep going", "yes", "ok", "okay"]
+                if user_query.lower().strip() in continue_keywords:
+                    action = "continue"
+                    print(f"   - Forced Intent: {intent} (continuation)")
+                else:
+                    print(f"   - Forced Intent: {intent} (user providing step input)")
+                    
+            else:
+                # No active task, do normal intent detection
+                print("🧠 Diagnosing user intent...")
+                intent_info = diagnose_user_intent(user_query)
+                intent = intent_info.get("intent", "query")
+                action = intent_info.get("action", "query")
+                
+                # Handle nested intent/action structures
+                if isinstance(intent, dict):
+                    intent = intent.get("type", intent.get("intent", "query"))
+                if isinstance(action, dict):
+                    action = action.get("type", action.get("action", "query"))
+                
+                print(f"   - Intent: {intent}, Action: {action}")
+
+
+            # 2. Add this turn to the cognitive lattice (audit log style)
+            if intent == "task" and action == "step_input" and active_task:
+                # For step input, we DON'T pre-add to lattice here
+                # The task handler will create the updated node with API results
+                pass
+            else:
+                # Add new event for new plan, chat, or query
+                lattice_event = {
+                    "type": intent,
+                    "query": user_query,
+                    "action": action,
+                    "timestamp": datetime.now().isoformat(),
+                    "status": "pending"
+                }
+                session_manager.lattice.add_event(lattice_event)
+
+
+            # === Intent-based Routing === #
+            if intent in ["chat", "simple", "conversation"]:
+                # Simple chat intent: respond conversationally
+                print(f"💬 [Simple Chat]: Routing to external API for conversational response...")
+                if 'advanced_rag' in locals() and advanced_rag and hasattr(advanced_rag, 'external_client'):
+                    try:
+                        # Direct API call for simple chat - no chunking, no RAG
+                        chat_response = advanced_rag.external_client.query_external_api(user_query)
+                        print(f"✅ Chat response received")
+                        print(f"\n💬 Response: {chat_response}")
+                        
+                        # Log the chat response as an event
+                        session_manager.lattice.add_event({
+                            "type": "chat_response",
+                            "timestamp": datetime.now().isoformat(),
+                            "query": user_query,
+                            "response": chat_response,
+                            "status": "completed"
+                        })
+                        
+                    except Exception as e:
+                        print(f"❌ Chat API call failed: {e}")
+                        fallback_response = "I'm here to chat, but I'm having trouble connecting to my chat system right now."
+                        print(f"💬 Fallback: {fallback_response}")
+                        session_manager.lattice.add_event({
+                            "type": "chat_response",
+                            "timestamp": datetime.now().isoformat(),
+                            "query": user_query,
+                            "response": fallback_response,
+                            "status": "error",
+                            "error": str(e)
+                        })
+                else:
+                    fallback_response = "I'm here to chat! (External API not available)"
+                    print(f"💬 [Chatbot]: {fallback_response}")
+                    session_manager.lattice.add_event({
+                        "type": "chat_response",
+                        "timestamp": datetime.now().isoformat(),
+                        "query": user_query,
+                        "response": fallback_response,
+                        "status": "completed"
+                    })
+
+            elif intent == "query" and action in ["query", "question", "ask", "simple_question_answering"]:
+                # Simple specific query - direct API call, no document analysis
+                print(f"❓ [Simple Query]: Routing directly to external API...")
+                if 'advanced_rag' in locals() and advanced_rag and hasattr(advanced_rag, 'external_client'):
+                    try:
+                        # Direct API call for simple questions - no chunking, no RAG
+                        query_response = advanced_rag.external_client.query_external_api(user_query)
+                        print(f"✅ Query response received")
+                        print(f"\n💡 Response: {query_response}")
+                        
+                        # Log the query response as an event
+                        session_manager.lattice.add_event({
+                            "type": "query_response",
+                            "timestamp": datetime.now().isoformat(),
+                            "query": user_query,
+                            "response": query_response,
+                            "status": "completed"
+                        })
+                        
+                    except Exception as e:
+                        print(f"❌ Query API call failed: {e}")
+                        fallback_response = "I'd be happy to help answer that, but I'm having trouble connecting right now."
+                        print(f"💡 Fallback: {fallback_response}")
+                        session_manager.lattice.add_event({
+                            "type": "query_response",
+                            "timestamp": datetime.now().isoformat(),
+                            "query": user_query,
+                            "response": fallback_response,
+                            "status": "error",
+                            "error": str(e)
+                        })
+                else:
+                    fallback_response = "I'd be happy to help answer that! (External API not available)"
+                    print(f"💡 [Query]: {fallback_response}")
+                    session_manager.lattice.add_event({
+                        "type": "query_response",
+                        "timestamp": datetime.now().isoformat(),
+                        "query": user_query,
+                        "response": fallback_response,
+                        "status": "completed"
+                    })
+
+            elif intent in ["analysis", "summarize", "broad"] or (intent == "specific" and action in ["analyze", "summarize", "extract", "review"]) or (intent == "query" and action in ["extract", "analyze", "review"]):
+                # Document analysis or RAG-based query - use the full pipeline
+                print(f"📊 [Document Analysis]: Using advanced RAG system...")
+                # This is the previous 'broad' and 'specific' logic, now unified for all analysis intents
+                # --- Begin migrated analysis logic ---
                 saved_analysis = None
                 analysis_files = [f for f in os.listdir('.') if f.startswith('external_analysis_') and f.endswith('.json')]
-                if analysis_files:
+
+                # Also check current interactive session for previous analyses
+                if 'session_results_file' in locals() and os.path.exists(session_results_file):
+                    try:
+                        if os.path.getsize(session_results_file) > 0:
+                            with open(session_results_file, 'r', encoding='utf-8') as f:
+                                session_data = json.load(f)
+                            if session_data.get('queries'):
+                                print(f"📁 Found current session with {len(session_data['queries'])} previous queries")
+                                # Extract external analysis from previous queries in this session
+                                session_analyses = []
+                                for query_data in session_data['queries']:
+                                    if query_data.get('external_analysis', {}).get('raw_results'):
+                                        session_analyses.extend(query_data['external_analysis']['raw_results'])
+                                if session_analyses:
+                                    saved_analysis = {'results': session_analyses}
+                                    print(f"   ✅ Loaded {len(session_analyses)} previously analyzed chunks from current session")
+                    except Exception as e:
+                        print(f"   ⚠️ Could not load current session data: {e}")
+
+                # Fall back to external analysis files if no session data and it's not the first query
+                if not saved_analysis and analysis_files and 'session_results_file' in locals():
                     # Use the most recent analysis file
                     latest_file = max(analysis_files, key=os.path.getmtime)
-                    print(f"📁 Found existing analysis: {latest_file}")
                     try:
-                        with open(latest_file, 'r', encoding='utf-8') as f:
-                            saved_analysis = json.load(f)
-                        print(f"   ✅ Loaded {len(saved_analysis.get('results', []))} previously analyzed chunks")
+                        # Check if file is not empty before trying to load
+                        if os.path.getsize(latest_file) > 0:
+                            print(f"📁 Found existing analysis: {latest_file}")
+                            with open(latest_file, 'r', encoding='utf-8') as f:
+                                saved_analysis = json.load(f)
+                            print(f"   ✅ Loaded {len(saved_analysis.get('results', []))} previously analyzed chunks from external file")
+                    except (json.JSONDecodeError, KeyError) as e:
+                        print(f"   ⚠️ Could not parse saved analysis: {e}")
                     except Exception as e:
                         print(f"   ⚠️ Could not load saved analysis: {e}")
-                
+
                 if 'advanced_rag' in locals() and advanced_rag:
                     try:
-                        # Use the enhanced query method
-                        result = advanced_rag.enhanced_query(
-                            user_query,
-                            max_chunks=5, # More chunks for better context
-                            enable_external_enhancement=True,
-                            safety_threshold=0.7
-                        )
+                        # Check if we can reuse a previous analysis for this exact query
+                        reused_previous_analysis = False
+                        saved_analysis_result = None
+
+                        # Determine current session file path
+                        session_file_path = None
+                        if 'session_results_file' in locals() and os.path.exists(session_results_file):
+                            session_file_path = session_results_file
+                        else:
+                            # Find most recent session file if one isn't active
+                            session_files = sorted([f for f in os.listdir('.') if f.startswith('interactive_session_') and f.endswith('.json')], key=os.path.getmtime, reverse=True)
+                            if session_files:
+                                session_file_path = session_files[0]
+
+                        if session_file_path and os.path.exists(session_file_path):
+                            try:
+                                with open(session_file_path, 'r', encoding='utf-8') as f:
+                                    # Check for empty file
+                                    if os.path.getsize(session_file_path) > 0:
+                                        session_data = json.load(f)
+                                        # Look for this exact query in previous analyses
+                                        for query_entry in session_data.get('queries', []):
+                                            if query_entry.get('query', '').lower().strip() == user_query.lower().strip():
+                                                saved_analysis_result = query_entry
+                                                reused_previous_analysis = True
+                                                break
+                            except (json.JSONDecodeError, KeyError) as e:
+                                print(f"   ⚠️ Could not parse session file {session_file_path}: {e}")
+                            except Exception as e:
+                                print(f"   ⚠️ Could not load session file {session_file_path}: {e}")
+
+                        if reused_previous_analysis and saved_analysis_result:
+                            print(f"♻️ Found exact match for '{user_query}' - reusing previous analysis (saving ~6000 tokens)")
+                            # Use the entire saved result
+                            result = saved_analysis_result
+                            result['reused_analysis'] = True
+                        else:
+                            # Use the enhanced query method with fresh API call
+                            print(f"🌐 Making fresh API call for new analysis...")
+                            result = advanced_rag.enhanced_query(
+                                user_query,
+                                max_chunks=5, # More chunks for better context
+                                enable_external_enhancement=True,
+                                safety_threshold=0.7
+                            )
+
+                        # Save the interactive query results (reuse session file if exists)
+                        if 'session_results_file' not in locals():
+                            query_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            session_results_file = f"interactive_session_{query_timestamp}.json"
+                        query_results_file = session_results_file
+
+                        # Clean the results for JSON serialization (remove embeddings and other non-serializable data)
+                        def clean_for_json(obj):
+                            """Recursively clean objects for JSON serialization"""
+                            if isinstance(obj, dict):
+                                cleaned = {}
+                                for key, value in obj.items():
+                                    if key in ['embedding', 'embeddings']:
+                                        cleaned[key] = f"<embedding_array_length_{len(value) if hasattr(value, '__len__') else 'unknown'}>"
+                                    else:
+                                        cleaned[key] = clean_for_json(value)
+                                return cleaned
+                            elif isinstance(obj, list):
+                                return [clean_for_json(item) for item in obj]
+                            elif hasattr(obj, 'tolist'):
+                                return f"<numpy_array_shape_{obj.shape}>"
+                            elif hasattr(obj, '__dict__'):
+                                return str(obj)
+                            else:
+                                return obj
+
+                        # Load existing session data if file exists
+                        session_data = {"queries": []}
+                        if os.path.exists(query_results_file):
+                            try:
+                                with open(query_results_file, 'r', encoding='utf-8') as f:
+                                    session_data = json.load(f)
+                                if "queries" not in session_data:
+                                    session_data["queries"] = []
+                            except Exception as load_err:
+                                print(f"⚠️ Could not load existing session file: {load_err}")
+                                session_data = {"queries": []}
+
+                        # Format the current query result
+                        query_result = {
+                            "query": user_query,
+                            "timestamp": datetime.now().isoformat(),
+                            "query_type": "interactive_specific",
+                            "chunks_found": len(result['local_results']['results']),
+                            "local_results": result['local_results'],
+                            "external_analysis": result.get('external_analysis'),
+                            "audit_results": result.get('audit_results'),
+                            "safety_status": result.get('safety_status', 'unknown')
+                        }
+
+                        # Clean the result for JSON serialization
+                        cleaned_query_result = clean_for_json(query_result)
+
+                        # Add to session data only if it's a new analysis
+                        if not result.get('reused_analysis'):
+                            session_data["queries"].append(cleaned_query_result)
+                            session_data["session_start"] = session_data.get("session_start", datetime.now().isoformat())
+                            session_data["last_updated"] = datetime.now().isoformat()
+                            session_data["total_queries"] = len(session_data["queries"])
+
+                            try:
+                                with open(query_results_file, 'w', encoding='utf-8') as f:
+                                    json.dump(session_data, f, indent=2, ensure_ascii=False)
+                                print(f"💾 Query results saved to session: {query_results_file} ({session_data['total_queries']} queries)")
+                            except Exception as save_error:
+                                print(f"⚠️ Could not save query results: {save_error}")
 
                         # Display results summary
                         print(f"\n✅ Advanced Query Complete:")
                         print(f"   📊 Found {len(result['local_results']['results'])} relevant chunks")
                         print(f"   🌐 External analysis: {'✅' if result.get('external_analysis') else '❌'}")
-                        
+
                         # If we have saved analysis, supplement the answer
                         if saved_analysis and result.get('local_results', {}).get('results'):
                             print(f"\n🔍 Supplementing with Previous Analysis:")
                             relevant_chunk_ids = [chunk.get('chunk_id', f"chunk_{i+1}") for i, chunk in enumerate(result['local_results']['results'])]
-                            
+
                             for chunk_id in relevant_chunk_ids:
                                 # Find matching analysis from saved data
                                 matching_analysis = None
@@ -441,7 +1014,7 @@ def main():
                                     if saved_chunk.get('chunk_id') == chunk_id:
                                         matching_analysis = saved_chunk.get('external_analysis', {})
                                         break
-                                
+
                                 if matching_analysis:
                                     print(f"\n   📄 {chunk_id} insights:")
                                     # Extract key themes and facts
@@ -450,7 +1023,7 @@ def main():
                                         themes = key_insights.get('Themes', key_insights.get('MainTopics', []))
                                         if themes:
                                             print(f"      🎯 Themes: {', '.join(themes[:3])}")
-                                    
+
                                     # Extract factual information
                                     factual = matching_analysis.get('Factual Extraction', {}) or matching_analysis.get('FactualExtraction', {})
                                     if factual:
@@ -460,30 +1033,316 @@ def main():
                                             print(f"      👤 Characters: {', '.join(names[:3])}")
                                         if locations:
                                             print(f"      📍 Locations: {', '.join(locations[:3])}")
-                        
-                        if result.get('external_analysis'):
-                            enhanced_answer = result['external_analysis'].get('enhanced_answer', 'No enhanced answer provided.')
-                            print(f"\n   💡 Enhanced Answer:\n{enhanced_answer}")
 
+                        # Display results in user-friendly format instead of raw JSON
+                        print(f"\n" + "="*60)
+                        print(f"📝 ANALYSIS RESULTS FOR: '{user_query}'")
+                        print(f"="*60)
+
+                        local_results = result.get('local_results', {})
+                        if local_results and local_results.get('results'):
+                            print(f"📊 Found {len(local_results['results'])} relevant chunks")
+
+                        if result.get('reused_analysis'):
+                            print(f"♻️ Used previous analysis (saved ~6000 tokens)")
+
+                        # Extract and format the analysis from external_analysis
+                        if result.get('external_analysis'):
+
+                            print(f"\n🔍 DETAILED ANALYSIS:")
+                            enhanced_answer = result['external_analysis'].get('enhanced_answer', '')
+                            # If the enhanced_answer is a unified summary (from the new summarization step), print it directly
+                            if enhanced_answer and isinstance(enhanced_answer, str) and len(enhanced_answer) > 0:
+                                print(f"\n{enhanced_answer.strip()}\n")
+                            else:
+                                # Fallback: show per-chunk analysis as before
+                                try:
+                                    parsed_analyses = []
+                                    json_parts = enhanced_answer.strip().split('\n\n')
+                                    for part in json_parts:
+                                        if part.strip().startswith('{'):
+                                            try:
+                                                parsed_analyses.append(json.loads(part.strip()))
+                                            except json.JSONDecodeError:
+                                                continue
+                                    if parsed_analyses:
+                                        for i, analysis in enumerate(parsed_analyses, 1):
+                                            print(f"\n📄 CHUNK {i} ANALYSIS:")
+                                            key_insights = analysis.get('Key Insights', analysis.get('KeyInsights', {}))
+                                            if isinstance(key_insights, dict):
+                                                themes = key_insights.get('Themes', [])
+                                                topics = key_insights.get('Main Topics', key_insights.get('MainTopics', []))
+                                                if themes:
+                                                    print(f"   🎭 THEMES: {', '.join(themes[:3])}")
+                                                if topics:
+                                                    print(f"   🎯 TOPICS: {', '.join(topics[:3])}")
+                                            factual = analysis.get('Factual Extraction', analysis.get('FactualExtraction', {}))
+                                            if isinstance(factual, dict):
+                                                names = factual.get('Names', factual.get('CharacterNames', []))
+                                                if isinstance(factual.get('Facts'), dict):
+                                                    names.extend(factual['Facts'].get('Names', []))
+                                                locations = factual.get('Locations', [])
+                                                if names:
+                                                    unique_names = sorted(list(set(names)))
+                                                    print(f"   👤 CHARACTERS: {', '.join(unique_names[:4])}")
+                                                if locations:
+                                                    print(f"   📍 LOCATIONS: {', '.join(locations[:3])}")
+                                    else:
+                                        print(f"\n💡 ANALYSIS SUMMARY:")
+                                        print(f"   {enhanced_answer[:500].strip()}...")
+                                except Exception as e:
+                                    print(f"\n💡 Could not fully parse analysis, showing summary: {e}")
+                                    print(f"   {enhanced_answer[:500].strip()}...")
+
+                        # Show source chunk previews
+                        if local_results and local_results.get('results'):
+                            print(f"\n📚 SOURCE CHUNKS ANALYZED:")
+                            for i, chunk in enumerate(local_results['results'][:3], 1):
+                                chunk_preview = chunk.get('content', '')[:100].replace('\n', ' ')
+                                print(f"   {i}. {chunk_preview}...")
+
+                        # Show audit results
                         if result.get('audit_results'):
                             audit = result['audit_results']
-                            print(f"   📋 Audit passed: {'✅' if audit.get('audit_passed') else '❌'}")
+                            print(f"\n🛡️ SAFETY: {'✅ PASSED' if audit.get('audit_passed') else '❌ FAILED'}")
                             if audit.get('safety_audit'):
                                 risk_level = audit['safety_audit'].get('risk_level', 'unknown')
-                                print(f"   ⚠️ Risk level: {risk_level}")
+                                print(f"   Risk Level: {risk_level.upper()}")
+
+                        print(f"\n" + "="*60)
                     except Exception as query_error:
                         print(f"   ❌ Query failed: {query_error}")
-                        import traceback
                         traceback.print_exc()
                 else:
-                    print("   ⚠️ Advanced RAG system not available for specific queries.")
+                    print("   ⚠️ Advanced RAG system not available for analysis queries.")
+                # --- End migrated analysis logic ---
+
+            elif intent in ["task", "structured_task", "plan", "planner"] or (intent == "query" and action in ["plan", "planning", "step_by_step", "itinerary"]):
+                # This is the master logic for handling all structured tasks.
+                print(f"🧩 [Task Planner]: Routing to structured task handler.")
+                
+                current_task = session_manager.lattice.get_active_task()
+                
+                # SCENARIO 1: A task is already active. The user is providing input for the current step.
+                if current_task:
+                    print(f"📋 Continuing existing task: {current_task.get('task_title', 'Untitled Task')}")
+                    print(f"🔍 Task details: query='{current_task.get('query', 'N/A')[:30]}...', status='{current_task.get('status', 'N/A')}'")
+                    task_plan = current_task.get("task_plan", [])
+                    completed_steps = current_task.get("completed_steps", [])
+                    print(f"🔍 Task has {len(task_plan)} planned steps and {len(completed_steps)} completed steps")
+                    
+                    # Handle "continue/next" action - advance to next step
+                    if action == "continue":
+                        # Mark current step as completed and move to next
+                        completed_steps = current_task.get("completed_steps", [])
+                        current_step_index = len(completed_steps)
+                        
+                        # Mark the current in-progress step as fully completed (if it exists)
+                        if completed_steps and completed_steps[-1].get("status") == "in_progress":
+                            step_number = completed_steps[-1].get("step_number", len(completed_steps))
+                            session_manager.lattice.mark_step_completed(step_number)
+                            print(f"✅ Step {step_number} marked as completed")
+                        
+                        # Check if there are more steps
+                        task_plan = current_task.get("task_plan", [])
+                        if current_step_index < len(task_plan):
+                            next_step_description = task_plan[current_step_index]
+                            print(f"\n⏭️ Moving to step {current_step_index + 1}/{len(task_plan)}: {next_step_description}")
+                            print(f"💡 Provide the information for this step or type 'continue' if no input is needed.")
+                            session_manager.lattice.save()
+                            continue  # Skip the rest of the task logic, wait for user input on new step
+                        else:
+                            session_manager.lattice.complete_current_task()
+                            print(f"🎉 Task completed! All {len(task_plan)} steps executed.")
+                            continue
+                    
+                    # Normal step processing - find current active step (first incomplete step)
+                    current_step_index = 0
+                    
+                    # Find the first step that hasn't been completed yet
+                    for i, step_data in enumerate(completed_steps):
+                        if step_data.get("status") == "completed":
+                            current_step_index = i + 1
+                        else:
+                            # Found an in-progress or incomplete step, this is our current step
+                            current_step_index = i
+                            break
+                    
+                    # If all existing steps are completed, we're on the next new step
+                    if current_step_index >= len(completed_steps):
+                        current_step_index = len(completed_steps)
+                    
+                    # Validate that the task has a proper task plan
+                    if not task_plan:
+                        print("⚠️ Found task without a valid plan. Marking as completed and starting fresh.")
+                        current_task["status"] = "completed"
+                        session_manager.lattice.save()
+                        # Set current_task to None so we create a new task
+                        current_task = None
+                    elif current_step_index < len(task_plan):
+                        # Process the current step (existing logic continues here...)
+                        current_step_description = task_plan[current_step_index]
+                        print(f"🎯 Executing step {current_step_index + 1}/{len(task_plan)}: {current_step_description}")
+                        
+                        # Create a comprehensive context-aware prompt for the LLM
+                        # Build context from completed steps
+                        completed_steps_context = ""
+                        if completed_steps:
+                            completed_steps_context = "\n\nPREVIOUSLY COMPLETED STEPS:\n"
+                            for i, step_data in enumerate(completed_steps, 1):
+                                completed_steps_context += f"Step {i}: {step_data.get('description', 'N/A')}\n"
+                                completed_steps_context += f"  User Input: {step_data.get('user_input', 'N/A')}\n"
+                                completed_steps_context += f"  Result: {step_data.get('result', 'N/A')[:150]}...\n\n"
+                        
+                        # Build full task plan context
+                        task_plan_context = "\n\nFULL TASK PLAN (ITINERARY):\n"
+                        for i, step_desc in enumerate(task_plan, 1):
+                            status_marker = "✅" if i <= len(completed_steps) else ("🎯" if i == current_step_index + 1 else "⏳")
+                            task_plan_context += f"{status_marker} Step {i}: {step_desc}\n"
+                        
+                        # Check if this current step has received previous user inputs
+                        current_step_inputs = ""
+                        # Look for any incomplete/partial work on this step in the lattice
+                        recent_task_nodes = [node for node in session_manager.lattice.nodes[-10:] if node.get('type') == 'task']
+                        for node in recent_task_nodes:
+                            if node.get('current_step_index') == current_step_index and node.get('partial_inputs'):
+                                current_step_inputs = f"\n\nPREVIOUS INPUTS FOR THIS STEP:\n{node.get('partial_inputs')}\n"
+                                break
+                        
+                        step_execution_prompt = f"""You are helping a user with a step-by-step task plan. Here is the complete context:
+
+ORIGINAL TASK PLAN YOU CREATED:
+{chr(10).join([f"{i+1}. {step}" for i, step in enumerate(current_task.get('task_plan', []))])}
+
+CURRENT STEP: You are currently working on Step {current_step_index + 1} of this task plan.
+CURRENT STEP DESCRIPTION: "{current_step_description}"
+
+USER INPUT FOR THIS STEP: "{user_query}"
+
+INSTRUCTIONS: 
+- The user has provided input specifically for Step {current_step_index + 1}: "{current_step_description}"
+- Factor in the user's new input and provide a response that addresses this specific step
+- Do NOT advance to other steps - focus only on completing or updating Step {current_step_index + 1}
+- Provide a helpful, actionable response for this current step based on the user's input
+
+COMPLETED STEPS SO FAR:
+{chr(10).join([f"Step {step.get('step_number', i+1)}: {step.get('description', 'No description')} - COMPLETED" for i, step in enumerate(completed_steps)]) if completed_steps else "None completed yet"}
+
+Please respond with information relevant to Step {current_step_index + 1} only."""
+                        
+                        if 'advanced_rag' in locals() and advanced_rag and hasattr(advanced_rag, 'external_client'):
+                            try:
+                                # Get the result for the current step from the external API
+                                step_result = advanced_rag.external_client.query_external_api(step_execution_prompt)
+                                
+                                # Update the active task state using the new hybrid approach
+                                session_manager.lattice.execute_step(
+                                    step_number=current_step_index + 1,
+                                    user_input=user_query,
+                                    result=step_result
+                                )
+                                
+                                print(f"🔄 Step {current_step_index + 1} updated:")
+                                print(f"   📄 Result: {step_result[:250]}...")
+                                print(f"\n💡 This step is ready. You can:")
+                                print(f"   - Type 'next' or 'continue' to move to the next step")
+                                print(f"   - Provide more information to refine this step further")
+                                print(f"   - Ask questions about this step")
+
+                                session_manager.lattice.save()
+
+                            except Exception as e:
+                                print(f"❌ Step execution failed: {e}")
+                                # Log the error event
+                                session_manager.lattice.add_event({
+                                    "type": "step_error",
+                                    "timestamp": datetime.now().isoformat(),
+                                    "step_number": current_step_index + 1,
+                                    "error": str(e),
+                                    "user_input": user_query
+                                })
+                                session_manager.lattice.save()
+                        else:
+                            print("⚠️ External API not available for step execution.")
+                    else:
+                        print("✅ Task is already complete.")
+                        current_task["status"] = "completed"
+                        session_manager.lattice.save()
+                        # Set current_task to None so we create a new task
+                        current_task = None
+
+                # SCENARIO 2: No active task. The user is starting a new one.
+                if not current_task:
+                    # Double-check: make sure there really isn't an active task before creating a new one
+                    double_check_active = session_manager.lattice.get_active_task()
+                    if double_check_active:
+                        print(f"⚠️ Found active task during double-check: {double_check_active.get('task_title', 'Untitled')}")
+                        print(f"   This should not happen! There may be a bug in task detection.")
+                        print(f"   Treating user input as step input for existing task instead.")
+                        # Redirect to existing task logic
+                        current_task = double_check_active
+                        # Process as step input
+                        intent = "task"
+                        action = "step_input"
+                        # Re-run the task processing logic here...
+                        # For now, just inform the user
+                        print(f"   Please try your input again - it should work correctly now.")
+                        continue
+                    
+                    print("🚀 Initiating new structured task planning...")
+                    if 'advanced_rag' in locals() and advanced_rag and hasattr(advanced_rag, 'external_client'):
+                        try:
+                            plan_response = advanced_rag.external_client.create_task_plan(user_query)
+                            
+                            if plan_response.get("success"):
+                                plan_text = plan_response.get("plan_text", "")
+                                task_steps = [step.strip() for step in plan_text.split('\n') if step.strip() and step.strip()[0].isdigit()]
+                                task_steps = [re.sub(r'^\d+\.\s*', '', step) for step in task_steps]
+
+                                if task_steps:
+                                    # Create the new task using the hybrid approach
+                                    new_task = session_manager.lattice.create_new_task(user_query, task_steps)
+                                    
+                                    print(f"📋 Task plan created with {len(task_steps)} steps:")
+                                    for i, step in enumerate(task_steps, 1):
+                                        print(f"   {i}. {step}")
+                                    
+                                    print(f"\n🎯 Ready to execute step 1: {task_steps[0]}")
+                                    print(f"💡 Provide the information for this step or type 'continue' if no input is needed.")
+                                else:
+                                    print("⚠️ Could not parse a valid plan from the external response.")
+                                    session_manager.lattice.add_event({
+                                        "type": "task_creation_failed",
+                                        "timestamp": datetime.now().isoformat(),
+                                        "query": user_query,
+                                        "error": "Could not parse plan"
+                                    })
+                                    session_manager.lattice.nodes[-1]["error"] = "Could not parse plan"
+                                    session_manager.lattice.save()
+                            else:
+                                print(f"⚠️ API call for planning failed: {plan_response.get('error')}")
+                                session_manager.lattice.nodes[-1]["error"] = plan_response.get('error')
+                                session_manager.lattice.save()
+                        except Exception as e:
+                            print(f"❌ Task planning failed: {e}")
+                            session_manager.lattice.nodes[-1]["status"] = "error"
+                            session_manager.lattice.nodes[-1]["error"] = str(e)
+                            session_manager.lattice.save()
+                    else:
+                        print("⚠️ External API not available for task planning.")
+                        session_manager.lattice.nodes[-1]["response"] = "External API required for structured tasks"
+                        session_manager.lattice.save()
+
+            else:
+                print(f"❓ [System]: Unrecognized intent '{intent}'. Please try rephrasing your request.")
+                session_manager.lattice.nodes[-1]["response"] = f"Unrecognized intent '{intent}'."
+                session_manager.lattice.save()
 
         except KeyboardInterrupt:
             print("\n⚠️ Process interrupted by user. Exiting.")
             break
         except Exception as e:
             print(f"\n❌ An error occurred during interactive analysis: {e}")
-            import traceback
             traceback.print_exc()
 
 # Only run if this file is executed directly
@@ -495,5 +1354,4 @@ if __name__ == "__main__":
         print("\n⚠️ Process interrupted by user")
     except Exception as e:
         print(f"\n❌ Error in main execution: {e}")
-        import traceback
         traceback.print_exc()

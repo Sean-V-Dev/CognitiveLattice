@@ -8,6 +8,7 @@ import json
 import requests
 import base64
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 # Try to load environment variables, but don't fail if dotenv isn't available
 try:
@@ -25,6 +26,125 @@ except ImportError:
                     os.environ[key] = value
 
 class ExternalAPIClient:
+    def summarize_analyses(self, analyses: List[Dict[str, Any]], original_query: str) -> Dict[str, Any]:
+        """
+        Sends multiple analysis results to the external API for a final summary.
+        """
+        print(f"🌐 Summarizing {len(analyses)} analysis results for query: '{original_query}'")
+
+        # Prepare the content for the summarization prompt
+        # We'll extract just the core analysis to keep the prompt focused
+        core_analyses = [
+            res.get("external_analysis", {}) for res in analyses if "external_analysis" in res
+        ]
+        if not core_analyses:
+            print("⚠️ No analysis results to summarize.")
+            return {"error": "No content to summarize."}
+            
+        analysis_json_str = json.dumps(core_analyses, indent=2)
+
+        prompt = f"""The user asked the following question: \"{original_query}\"
+
+Based on the following chunk-by-chunk JSON analyses of a document, synthesize a single, comprehensive, and user-friendly answer.
+Do not present the information on a \"per-chunk\" basis. Instead, consolidate all the information into a unified response. For example, if the user asks for characters, provide a single list of all characters found across all chunks under a \"Characters\" heading.
+
+Here is the detailed analysis data from multiple document chunks:
+{analysis_json_str}
+
+Please provide a final, consolidated answer based on this data. The answer should be in a clear, readable format. Interpret the JSON and present the information naturally.
+"""
+
+        try:
+            # Using gpt-4o-mini for cost-effectiveness and speed
+            model = "gpt-4o-mini"
+            messages = [
+                {"role": "system", "content": "You are an expert synthesis agent. Your job is to combine multiple detailed JSON analyses into a single, coherent, and user-friendly answer."},
+                {"role": "user", "content": prompt}
+            ]
+
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": 2000,
+                "temperature": 0.5,
+            }
+
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=120 # Increased timeout for potentially large summarization task
+            )
+
+            response.raise_for_status()
+            response_json = response.json()
+            
+            summary_content = response_json["choices"][0]["message"]["content"]
+            
+            print("✅ Summarization complete.")
+            return {
+                "summary_text": summary_content,
+                "tokens_used": response_json.get("usage", {}).get("total_tokens"),
+                "model_used": response_json.get("model", model)
+            }
+
+        except Exception as e:
+            print(f"Error summarizing analyses: {e}")
+            return {"error": str(e), "summary_text": "Could not generate summary."}
+
+    def create_task_plan(self, user_query: str) -> Dict[str, Any]:
+        """
+        Asks the external API to create a step-by-step plan for a given query.
+        """
+        print(f"📋 Asking external API to create a plan for: '{user_query}'")
+        
+        # The current date is added to give the LLM temporal context.
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        prompt = f"""The user wants to accomplish the following task: "{user_query}"
+
+Your role is to act as an expert planner. Break down this task into a series of clear, actionable steps.
+Do NOT attempt to execute the steps yourself.
+Return ONLY a numbered list of the steps required to complete the task.
+
+Example:
+User Query: "Help me plan a 3-day trip to Paris on a $1000 budget."
+Your Response:
+1. Research round-trip flight options to Paris (CDG) and identify the most affordable ones.
+2. Find budget-friendly accommodation options (hostels, budget hotels, or Airbnb) for 3 nights.
+3. Create a sample itinerary including free attractions like walking tours and visiting public parks.
+4. Estimate daily costs for food, local transportation, and entrance fees.
+5. Consolidate all findings into a final budget and itinerary.
+
+The current date is {current_date}. Now, create the plan for the user's query.
+"""
+
+        try:
+            model = "gpt-4o-mini" 
+            messages = [
+                {"role": "system", "content": "You are a world-class planner. Your job is to break down complex user requests into simple, step-by-step plans. You only provide the plan, you do not execute it."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response_data = self._call_openai_api(model, messages, max_tokens=1000, temperature=0.6)
+            
+            plan_text = response_data["choices"][0]["message"]["content"]
+            
+            return {
+                "success": True,
+                "plan_text": plan_text,
+                "tokens_used": response_data.get("usage", {}).get("total_tokens", 0)
+            }
+
+        except Exception as e:
+            print(f"❌ Error creating task plan: {e}")
+            return {"success": False, "error": str(e)}
+
     """
     Client for sending TokenSight chunks to external APIs
     """
@@ -50,6 +170,57 @@ class ExternalAPIClient:
             return "https://api.openai.com/v1"
         else:
             raise ValueError(f"Unsupported API provider: {self.api_provider}")
+    
+    def query_external_api(self, query: str) -> str:
+        """
+        Send a direct query to external API for simple questions and chat
+        
+        Args:
+            query (str): The user's question or chat message
+            
+        Returns:
+            str: The response from the external API
+        """
+        try:
+            print(f"🌐 Sending direct query to external API...")
+            
+            # Get current date for context
+            from datetime import datetime
+            current_date = datetime.now().strftime("%B %d, %Y")
+            current_month = datetime.now().strftime("%B")
+            
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            messages = [
+                {"role": "system", "content": f"You are a helpful AI assistant. Today's date is {current_date}. When answering questions about 'this time of year' or current conditions, use {current_month} {datetime.now().year} as the reference point. Provide clear, informative responses to user questions."},
+                {"role": "user", "content": query}
+            ]
+            
+            payload = {
+                "model": "gpt-4o-mini",  # Using cost-effective model for simple queries
+                "messages": messages,
+                "max_tokens": 1000,
+                "temperature": 0.7,
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            response.raise_for_status()
+            response_json = response.json()
+            
+            return response_json["choices"][0]["message"]["content"]
+            
+        except Exception as e:
+            print(f"❌ Direct query failed: {e}")
+            return f"I apologize, but I'm having trouble connecting to provide an answer right now. Error: {str(e)}"
     
     def analyze_chunk_with_external_api(self, chunk_data: Dict[str, Any], analysis_type: str = "comprehensive") -> Dict[str, Any]:
         """
@@ -306,6 +477,31 @@ Return analysis as structured JSON."""
         print(f"✅ Completed external analysis of {len(results)} chunks")
         return results
 
+    def _call_openai_api(self, model: str, messages: List[Dict[str, Any]], max_tokens: int, temperature: float) -> Dict[str, Any]:
+        """Make API call to OpenAI with specified model and parameters"""
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        
+        response = requests.post(
+            f"{self.base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        
+        response.raise_for_status()
+        return response.json()
+    
 def identify_relevant_chunks_for_external_analysis(chunk_metadata: List[Dict[str, Any]], 
                                                  criteria: Dict[str, Any] = None) -> List[Dict[str, Any]]:
     """
