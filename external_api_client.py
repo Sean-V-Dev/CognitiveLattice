@@ -112,22 +112,46 @@ Your role is to act as an expert planner. Break down this task into a series of 
 Do NOT attempt to execute the steps yourself.
 Return ONLY a numbered list of the steps required to complete the task.
 
-Example:
-User Query: "Help me plan a 3-day trip to Paris on a $1000 budget."
-Your Response:
-1. Research round-trip flight options to Paris (CDG) and identify the most affordable ones.
-2. Find budget-friendly accommodation options (hostels, budget hotels, or Airbnb) for 3 nights.
-3. Create a sample itinerary including free attractions like walking tours and visiting public parks.
-4. Estimate daily costs for food, local transportation, and entrance fees.
-5. Consolidate all findings into a final budget and itinerary.
+CRITICAL REQUIREMENT - READ CAREFULLY:
+You MUST combine research and booking actions into single steps. This is absolutely required.
+Do NOT create separate "research" and "book" steps - they MUST be combined.
 
-The current date is {current_date}. Now, create the plan for the user's query.
+FORBIDDEN PATTERNS (DO NOT DO THIS):
+❌ Step X: "Research flights"  Step Y: "Book flights"
+❌ Step X: "Find hotels"  Step Y: "Book hotel" 
+❌ Step X: "Look for restaurants"  Step Y: "Make reservations"
+
+REQUIRED PATTERNS (DO THIS INSTEAD):
+✅ "Research and select round-trip flights, comparing prices and times"
+✅ "Find and book accommodation that fits budget and location preferences"
+✅ "Plan dining options and make necessary restaurant reservations"
+
+EXAMPLE FOR TRAVEL PLANNING:
+User Query: "Help me plan a trip to Paris"
+CORRECT Response:
+1. Determine travel dates and duration
+2. Research and select round-trip flights to Paris (compare airlines, prices, schedules)
+3. Find and book accommodation for the stay (hotels, Airbnb, etc.)
+4. Plan daily itinerary with attractions, activities, and dining
+5. Prepare travel documents and pack for the trip
+
+WRONG Response (DO NOT DO):
+1. Research flight options ❌
+2. Book selected flight ❌
+3. Research hotels ❌  
+4. Book hotel room ❌
+
+The current date is {current_date}. 
+
+Remember: COMBINE research and booking into single steps. Do not separate them.
+
+Now create the plan for: "{user_query}"
 """
 
         try:
             model = "gpt-4o-mini" 
             messages = [
-                {"role": "system", "content": "You are a world-class planner. Your job is to break down complex user requests into simple, step-by-step plans. You only provide the plan, you do not execute it."},
+                {"role": "system", "content": "You are a world-class planner. CRITICAL REQUIREMENT: You MUST combine research and booking actions into single cohesive steps. NEVER separate 'research X' and 'book X' into different steps - they must be combined. You only provide consolidated plans, you do not execute them."},
                 {"role": "user", "content": prompt}
             ]
             
@@ -135,9 +159,35 @@ The current date is {current_date}. Now, create the plan for the user's query.
             
             plan_text = response_data["choices"][0]["message"]["content"]
             
+            # Parse the plan text into a list of steps
+            plan_steps = []
+            lines = plan_text.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                if line and (line[0].isdigit() or line.startswith('-') or line.startswith('*')):
+                    # Remove numbering and bullet points
+                    clean_step = line
+                    if '. ' in line:
+                        clean_step = line.split('. ', 1)[1] if len(line.split('. ', 1)) > 1 else line
+                    elif line.startswith('- '):
+                        clean_step = line[2:]
+                    elif line.startswith('* '):
+                        clean_step = line[2:]
+                    
+                    if clean_step.strip():
+                        plan_steps.append(clean_step.strip())
+            
+            # Fallback: if no steps parsed, split by lines and filter
+            if not plan_steps:
+                for line in lines:
+                    line = line.strip()
+                    if line and len(line) > 10:  # Reasonable step length
+                        plan_steps.append(line)
+            
             return {
                 "success": True,
-                "plan_text": plan_text,
+                "plan": plan_steps,  # Return as 'plan' not 'plan_text'
+                "plan_text": plan_text,  # Keep original text too
                 "tokens_used": response_data.get("usage", {}).get("total_tokens", 0)
             }
 

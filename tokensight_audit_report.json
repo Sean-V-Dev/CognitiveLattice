@@ -1,0 +1,34 @@
+{
+  "system_info": {
+    "rag_systems": {
+      "scientific": {
+        "model": "allenai/specter",
+        "chunks_indexed": 0,
+        "vector_dimension": 768,
+        "model_loaded": false
+      },
+      "regulatory": {
+        "model": "sentence-transformers/all-mpnet-base-v2",
+        "chunks_indexed": 0,
+        "vector_dimension": 768,
+        "model_loaded": false
+      },
+      "technical": {
+        "model": "sentence-transformers/all-MiniLM-L12-v2",
+        "chunks_indexed": 10,
+        "vector_dimension": 384,
+        "model_loaded": true
+      }
+    },
+    "total_chunks": 10,
+    "system_ready": true
+  },
+  "processing_history": [],
+  "audit_summary": {
+    "total_queries": 0
+  },
+  "recommendations": [
+    "Consider enabling external API auditing for more queries"
+  ],
+  "timestamp": "now"
+}

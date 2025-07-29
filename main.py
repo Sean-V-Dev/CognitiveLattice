@@ -4,6 +4,21 @@ import json
 import traceback
 from typing import List, Dict, Any
 from datetime import datetime
+from utils.dictionary_manager import expand_dictionary, clean_input
+from encoder.text_to_image import encode_text_to_image
+from decoder.image_to_text import decode_image_to_text
+from text_processor import extract_paragraphs, chunk_paragraphs
+from file_handler import process_file
+from llama_client import run_llama_inference_with_context, diagnose_content_type, extract_key_facts, SUMMARY_TEMPLATES, diagnose_user_intent
+from page_extractor import integrate_page_based_extraction, PAGE_EXTRACTION_AVAILABLE
+from memory_manager import search_memory, initialize_memory
+from external_api_client import ExternalAPIClient, identify_relevant_chunks_for_external_analysis, save_external_analysis_results
+from tool_manager import ToolManager
+
+# NEW: Advanced RAG system integration
+from tokensight_advanced_rag import TokenSightAdvancedRAG
+
+
 
 # === Cognitive Lattice and Session Manager === #
 class CognitiveLattice:
@@ -343,18 +358,7 @@ class SessionManager:
         return self.lattice
 
 # Local modules
-from utils.dictionary_manager import expand_dictionary, clean_input
-from encoder.text_to_image import encode_text_to_image
-from decoder.image_to_text import decode_image_to_text
-from text_processor import extract_paragraphs, chunk_paragraphs
-from file_handler import process_file
-from llama_client import run_llama_inference_with_context, diagnose_content_type, extract_key_facts, SUMMARY_TEMPLATES, diagnose_user_intent
-from page_extractor import integrate_page_based_extraction, PAGE_EXTRACTION_AVAILABLE
-from memory_manager import search_memory, initialize_memory
-from external_api_client import ExternalAPIClient, identify_relevant_chunks_for_external_analysis, save_external_analysis_results
 
-# NEW: Advanced RAG system integration
-from tokensight_advanced_rag import TokenSightAdvancedRAG
 
 
 # === Initialize memory to store chunk summaries === #
@@ -371,6 +375,10 @@ def main():
     # === Initialize session manager and cognitive lattice === #
     session_manager = SessionManager()
     print(f"🧠 Cognitive Lattice initialized for session: {session_manager.lattice.session_id}")
+
+    # === Initialize Tool Manager === #
+    tool_manager = ToolManager()
+    print(f"🔧 Tool Manager initialized")
 
     print("📋 TokenSight Enhanced PDF Processing")
     print("=" * 50)
@@ -1200,6 +1208,32 @@ def main():
                             status_marker = "✅" if i <= len(completed_steps) else ("🎯" if i == current_step_index + 1 else "⏳")
                             task_plan_context += f"{status_marker} Step {i}: {step_desc}\n"
                         
+                        # Build recent tool results context for external API
+                        tool_context = ""
+                        if hasattr(tool_manager, 'recent_tool_results') and tool_manager.recent_tool_results:
+                            tool_context = "\n\nRECENT TOOL RESULTS AVAILABLE:\n"
+                            for tool_name, tool_result in tool_manager.recent_tool_results.items():
+                                tool_context += f"\n{tool_name.upper()} RESULTS:\n"
+                                if tool_name == 'flight_planner' and 'flight_options' in tool_result:
+                                    tool_context += f"Route: {tool_result.get('route', 'N/A')}\n"
+                                    tool_context += f"Available Options:\n"
+                                    for i, flight in enumerate(tool_result['flight_options'], 1):
+                                        tool_context += f"  Option {i}: {flight['airline']} - ${flight['price']:.2f} - {flight['stops']} stops - {flight['departure_time']}\n"
+                                elif tool_name == 'hotel_planner' and 'hotel_options' in tool_result:
+                                    tool_context += f"Location: {tool_result.get('search_parameters', {}).get('location', 'N/A').title()}\n"
+                                    tool_context += f"Available Options:\n"
+                                    for i, hotel in enumerate(tool_result['hotel_options'], 1):
+                                        tool_context += f"  Option {i}: {hotel['name']} - ${hotel['price']:.2f}/night - {hotel['rating']}/5 stars - {hotel['room_type']}\n"
+                                elif tool_name == 'restaurant_planner' and 'restaurant_options' in tool_result:
+                                    tool_context += f"Location: {tool_result.get('search_parameters', {}).get('location', 'N/A').title()}\n"
+                                    tool_context += f"Available Options:\n"
+                                    for i, restaurant in enumerate(tool_result['restaurant_options'], 1):
+                                        tool_context += f"  Option {i}: {restaurant['name']} - {restaurant['cuisine']} - {restaurant['price_range']} - {restaurant['available_time']}\n"
+                                else:
+                                    # Generic tool result formatting
+                                    tool_context += f"{str(tool_result)[:200]}...\n"
+                            tool_context += "\nNOTE: User may refer to these results by option number (e.g., 'option 2' means the second option above).\n"
+                        
                         # Check if this current step has received previous user inputs
                         current_step_inputs = ""
                         # Look for any incomplete/partial work on this step in the lattice
@@ -1219,9 +1253,12 @@ CURRENT STEP DESCRIPTION: "{current_step_description}"
 
 USER INPUT FOR THIS STEP: "{user_query}"
 
+{tool_context}
+
 INSTRUCTIONS: 
 - The user has provided input specifically for Step {current_step_index + 1}: "{current_step_description}"
 - Factor in the user's new input and provide a response that addresses this specific step
+- If user refers to options by number (e.g., "option 2"), use the tool results context above
 - Do NOT advance to other steps - focus only on completing or updating Step {current_step_index + 1}
 - Provide a helpful, actionable response for this current step based on the user's input
 
@@ -1232,18 +1269,58 @@ Please respond with information relevant to Step {current_step_index + 1} only."
                         
                         if 'advanced_rag' in locals() and advanced_rag and hasattr(advanced_rag, 'external_client'):
                             try:
-                                # Get the result for the current step from the external API
-                                step_result = advanced_rag.external_client.query_external_api(step_execution_prompt)
+                                # 🔧 TOOL-FIRST APPROACH: Check for tools before making external API call
+                                tool_enhancement = tool_manager.enhance_llm_response(
+                                    user_query,  # Check user input directly for tool needs
+                                    context={
+                                        'step_number': current_step_index + 1,
+                                        'step_description': current_step_description,
+                                        'user_input': user_query,
+                                        'task_context': current_task,
+                                        'external_client': advanced_rag.external_client  # Pass LLM for tool selection
+                                    }
+                                )
+                                
+                                # If tools were used, skip external API call and use tool results directly
+                                if tool_enhancement['tools_used']:
+                                    print(f"🔧 Tools detected - using tool results directly (skipping external API)")
+                                    final_step_result = tool_enhancement['enhanced_response']
+                                else:
+                                    # No tools needed, proceed with normal external API call
+                                    step_result = advanced_rag.external_client.query_external_api(step_execution_prompt)
+                                    final_step_result = step_result
+                                
+                                # Log tool usage if any tools were used
+                                if tool_enhancement['tools_used']:
+                                    print(f"🔧 Tools used: {', '.join(tool_enhancement['tools_used'])}")
+                                    session_manager.lattice.add_event({
+                                        "type": "tools_executed",
+                                        "timestamp": datetime.now().isoformat(),
+                                        "step_number": current_step_index + 1,
+                                        "tools_used": tool_enhancement['tools_used'],
+                                        "tool_results": tool_enhancement['tool_results']
+                                    })
                                 
                                 # Update the active task state using the new hybrid approach
                                 session_manager.lattice.execute_step(
                                     step_number=current_step_index + 1,
                                     user_input=user_query,
-                                    result=step_result
+                                    result=final_step_result
                                 )
                                 
                                 print(f"🔄 Step {current_step_index + 1} updated:")
-                                print(f"   📄 Result: {step_result[:250]}...")
+                                
+                                # Display the result with better formatting and no truncation for flight results
+                                if "FLIGHT SEARCH RESULTS FOUND" in final_step_result or "FLIGHT SELECTION CONFIRMED" in final_step_result:
+                                    # Show full flight results without truncation
+                                    print(f"   📄 Result: {final_step_result}")
+                                else:
+                                    # For other results, show more characters but still truncate if very long
+                                    if len(final_step_result) > 500:
+                                        print(f"   📄 Result: {final_step_result[:500]}...")
+                                    else:
+                                        print(f"   📄 Result: {final_step_result}")
+                                
                                 print(f"\n💡 This step is ready. You can:")
                                 print(f"   - Type 'next' or 'continue' to move to the next step")
                                 print(f"   - Provide more information to refine this step further")
