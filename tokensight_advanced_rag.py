@@ -135,9 +135,14 @@ class TokenSightAdvancedRAG:
         if not final_response.get("audit_results"):
             # Create a synthesized answer from local results if no external answer exists
             synthesized_answer = " ".join([chunk.get('content', '') for chunk in relevant_chunks])
+            
+            # Safely extract the enhanced answer with null checks
+            external_analysis = final_response.get("external_analysis") or {}
+            enhanced_answer = external_analysis.get("enhanced_answer") if isinstance(external_analysis, dict) else None
+            
             final_response["audit_results"] = self.rag_system.safety_auditor.audit_response(
-                query, 
-                final_response.get("external_analysis", {}).get("enhanced_answer") or synthesized_answer
+                enhanced_answer or synthesized_answer,  # response (string)
+                relevant_chunks  # source_chunks (list of dicts)
             )
             if not final_response["audit_results"]["audit_passed"]:
                 final_response["safety_status"] = "failed_audit"
