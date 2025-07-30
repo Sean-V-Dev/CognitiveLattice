@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 
+# === Cognitive Lattice and Session Manager === #
 class CognitiveLattice:
     """
     Hybrid lattice with active task state + event log for audit trail.
@@ -302,7 +303,6 @@ class CognitiveLattice:
             self.active_task_state = None
             self.event_log = []
             self.nodes = []
-
 
 class SessionManager:
     """

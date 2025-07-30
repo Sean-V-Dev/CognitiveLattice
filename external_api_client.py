@@ -290,7 +290,7 @@ Now create the plan for: "{user_query}"
         
         try:
             if self.api_provider == "openai":
-                response = self._call_openai_api(prompt, chunk_data)
+                response = self._call_openai_api_for_analysis(prompt, chunk_data)
             else:
                 raise ValueError(f"Unsupported provider: {self.api_provider}")
             
@@ -378,7 +378,7 @@ Return analysis as structured JSON."""
         
         return prompts.get(analysis_type, prompts["comprehensive"])
     
-    def _call_openai_api(self, prompt: str, chunk_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _call_openai_api_for_analysis(self, prompt: str, chunk_data: Dict[str, Any]) -> Dict[str, Any]:
         """Make API call to OpenAI"""
         
         # Check if chunk has associated images that need vision model

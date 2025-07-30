@@ -18,7 +18,8 @@ class ToolManager:
     def __init__(self, tools_directory="tools"):
         self.tools_directory = tools_directory
         self.available_tools = {}
-        self.recent_tool_results = {}  # Store recent tool results for context
+        self.recent_tool_results = {}
+        self.persistent_objects = {}  # NEW: Store complex objects like RAG systems
         self.load_tools()
     
     def load_tools(self):
@@ -92,12 +93,30 @@ class ToolManager:
         Use external LLM to intelligently select tools based on context.
         This is the real challenge - contextual tool selection by LLM reasoning.
         """
-        # Build context about recent tool results
+        # Build context about recent tool results and document state
         recent_tools_context = ""
         if hasattr(self, 'recent_tool_results') and self.recent_tool_results:
             recent_tools_context = "\n\nRECENT TOOL RESULTS:\n"
             for tool_name, result in self.recent_tool_results.items():
-                recent_tools_context += f"- {tool_name}: Available for follow-up actions\n"
+                if tool_name == 'document_processor':
+                    recent_tools_context += f"- {tool_name}: Document has been processed and is ready for queries\n"
+                else:
+                    recent_tools_context += f"- {tool_name}: Available for follow-up actions\n"
+        
+        # Add lattice/session context if available
+        lattice_context = ""
+        if context and context.get('session_manager'):
+            session_manager = context['session_manager']
+            try:
+                # Check if there are any document processing events in the lattice
+                all_events = session_manager.lattice.events
+                doc_events = [e for e in all_events if e.get("type") == "document_processed"]
+                if doc_events:
+                    latest_doc = doc_events[-1]
+                    source_file = latest_doc.get("source_file", "unknown")
+                    lattice_context = f"\n\nDOCUMENT STATE: A document ({source_file}) has been processed and content is available in memory.\n"
+            except Exception:
+                pass  # Ignore lattice access errors
         
         # Create LLM prompt for tool selection
         tool_selection_prompt = f"""You are an intelligent tool selection agent. Analyze the context and determine if any tools should be used.
@@ -108,22 +127,21 @@ USER INPUT: "{user_input}"
 AVAILABLE TOOLS:
 {self._format_available_tools(available_tools)}
 
-{recent_tools_context}
+{recent_tools_context}{lattice_context}
 
-ANALYSIS FRAMEWORK:
-1. What is the user trying to accomplish in this step?
-2. Does their input indicate they need a specific tool's functionality?
-3. Are there implicit tool needs based on the task context?
-4. Do they reference previous tool results (like "option 2")?
+DECISION FRAMEWORK:
+1. What is the user trying to accomplish?
+2. Is this a request to process/load a new document, or query existing document content?
+3. Do they need search/planning functionality (flights, hotels, restaurants)?
+4. Are they selecting from previous results (option numbers)?
 
-IMPORTANT: 
-- Consider both explicit requests and implicit needs
-- If the step is about flights and user mentions cities, they likely need flight_planner
-- If the step is about accommodation and user mentions location, they likely need hotel_planner
-- If user references "option X" or airline names, they likely need flight_selector
-- Only suggest tools that are actually available and needed
+IMPORTANT GUIDELINES:
+- Use "document_processor" for NEW document processing requests
+- Use "document_query" for questions about ALREADY PROCESSED documents
+- Use planners for initial searches, selectors for choosing options
+- Trust your judgment - you understand context better than rigid rules
 
-Respond with ONLY the tool name (e.g., "flight_planner") or "none" if no tool is needed."""
+Respond with ONLY the tool name (e.g., "document_query") or "none" if no tool is needed."""
 
         try:
             # Try to get LLM decision from external API
@@ -271,10 +289,14 @@ Do not explain your reasoning, just provide the tool name or "none"."""
     def _format_available_tools(self, available_tools: List[str]) -> str:
         """Format available tools with descriptions for LLM"""
         tool_descriptions = {
+            'document_processor': 'Processes/loads a document for the first time (use when user wants to "process", "load", or "analyze" a document)',
+            'document_query': 'Queries content from a previously processed document (use when user asks "what is in", "summarize", or questions about document content)',
             'flight_planner': 'Searches for flight options between cities with dates and pricing',
             'flight_selector': 'Selects a specific flight option from previous search results',
             'hotel_planner': 'Finds accommodation options in a specific location',
-            'restaurant_planner': 'Searches for dining options and makes reservations'
+            'hotel_selector': 'Selects a specific hotel from previous search results',
+            'restaurant_planner': 'Searches for dining options and makes reservations',
+            'restaurant_selector': 'Selects a specific restaurant from previous search results'
         }
         
         formatted = []
@@ -285,15 +307,28 @@ Do not explain your reasoning, just provide the tool name or "none"."""
         return "\n".join(formatted)
     
     def _contextual_tool_reasoning(self, user_input: str, step_description: str, available_tools: List[str]) -> Optional[str]:
-        """
-        Simplified contextual reasoning that mimics how an LLM would approach tool selection.
-        This replaces hardcoded regex with contextual understanding.
-        """
-        # Combine context for analysis
+        """Enhanced contextual reasoning that includes document processing."""
         combined_context = f"{step_description} {user_input}".lower()
         
-        # Contextual reasoning patterns (mimicking LLM thought process)
+        # Enhanced reasoning patterns including document processing
         reasoning_patterns = {
+            'document_processor': [
+                # Direct document processing requests
+                lambda ctx: any(phrase in ctx for phrase in ['process document', 'analyze document', 'load document']),
+                # File-based processing requests
+                lambda ctx: any(ext in ctx for ext in ['.pdf', '.txt', '.docx']) and 
+                           any(action in ctx for action in ['process', 'analyze', 'load']),
+                # Document analysis context
+                lambda ctx: any(phrase in ctx for phrase in ['document analysis', 'text analysis', 'file analysis']),
+            ],
+            'document_query': [
+                # Query requests when RAG system is available
+                lambda ctx: any(phrase in ctx for phrase in ['search document', 'find in document', 'query document']) and
+                           'advanced_rag_system' in str(self.persistent_objects.keys()),
+                # Analysis questions when document is loaded
+                lambda ctx: any(phrase in ctx for phrase in ['what does', 'who is', 'where is', 'how does']) and
+                           'advanced_rag_system' in str(self.persistent_objects.keys()),
+            ],
             'flight_planner': [
                 # Direct flight requests
                 lambda ctx: any(phrase in ctx for phrase in ['flight', 'fly', 'airline']) and 
@@ -364,10 +399,64 @@ Do not explain your reasoning, just provide the tool name or "none"."""
         return True  # Default to allowing tool if no specific validation needed
     
     def _extract_tool_parameters(self, llm_response: str, tool_name: str, step_description: str) -> Optional[Dict[str, Any]]:
-        """Extract parameters for the detected tool"""
+        """Enhanced parameter extraction including document processing tools."""
         combined_text = f"{step_description} {llm_response}"
         
-        if tool_name == 'flight_planner':
+        if tool_name == 'document_processor':
+            # Extract document processing parameters
+            print(f"📄 Extracting document_processor parameters from: '{combined_text}'")
+            
+            # Look for file paths or names
+            file_pattern = r'([a-zA-Z0-9_\-\.]+\.(pdf|txt|docx))'
+            match = re.search(file_pattern, combined_text, re.IGNORECASE)
+            
+            source_file = None
+            if match:
+                source_file = match.group(1)
+                print(f"📄 Found file: {source_file}")
+            else:
+                # Look for common file names
+                common_files = ['example.txt', 'example.pdf', 'document.pdf', 'test.txt']
+                for common_file in common_files:
+                    if os.path.exists(common_file):
+                        source_file = common_file
+                        print(f"📄 Using existing file: {source_file}")
+                        break
+                
+                if not source_file:
+                    source_file = 'example.txt'  # Default fallback
+                    print(f"📄 Using default file: {source_file}")
+            
+            # Determine processing mode
+            processing_mode = "full"  # Default
+            if 'steganographic only' in combined_text.lower():
+                processing_mode = "steganographic_only"
+            elif 'chunks only' in combined_text.lower():
+                processing_mode = "chunks_only"
+            
+            return {
+                'source_file': source_file,
+                'processing_mode': processing_mode,
+                'enable_external_api': True  # Can be made configurable
+            }
+            
+        elif tool_name == 'document_query':
+            # Extract query parameters
+            print(f"🔍 Extracting document_query parameters from: '{combined_text}'")
+            
+            # The query is essentially the user's input cleaned up
+            query = llm_response.strip()
+            
+            # Get RAG system from persistent objects
+            rag_system = self.persistent_objects.get('advanced_rag_system')
+            
+            return {
+                'query': query,
+                'rag_system': rag_system,
+                'max_chunks': 5  # Default
+            }
+        
+        elif tool_name == 'flight_planner':
             # Extract flight search parameters with more flexible patterns
             origin = None
             destination = None
@@ -602,8 +691,8 @@ Do not explain your reasoning, just provide the tool name or "none"."""
         
         return None
     
-    def execute_tool(self, tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a specific tool with given parameters"""
+    def execute_tool(self, tool_name: str, parameters: Dict[str, Any], session_manager=None) -> Dict[str, Any]:
+        """Enhanced tool execution that handles persistent objects."""
         if tool_name not in self.available_tools:
             return {
                 'status': 'error',
@@ -615,33 +704,27 @@ Do not explain your reasoning, just provide the tool name or "none"."""
             tool_function = self.available_tools[tool_name]['function']
             print(f"🔧 Executing tool: {tool_name} with parameters: {parameters}")
             
+            # Add session_manager to parameters if the tool supports it
+            if session_manager is not None:
+                parameters['session_manager'] = session_manager
+            
             # Execute the tool
             result = tool_function(**parameters)
             
-            # Smart management of recent tool results
-            if tool_name.endswith('_planner'):
-                # When a new planner tool is used, clear results from other planners
-                # to ensure the most recent planner takes priority for selections
-                planner_tools = ['flight_planner', 'hotel_planner', 'restaurant_planner']
+            # Handle persistent objects (like RAG systems)
+            if tool_name == 'document_processor' and result.get('status') == 'success':
+                # Store the RAG system for future use
+                if 'advanced_rag_system' in result and result['advanced_rag_system']:
+                    self.persistent_objects['advanced_rag_system'] = result['advanced_rag_system']
+                    print(f"💾 Stored RAG system for future document queries")
                 
-                # Clear other planner results to ensure correct selector priority
-                for other_planner in planner_tools:
-                    if other_planner != tool_name and other_planner in self.recent_tool_results:
-                        print(f"🔄 Clearing old {other_planner} results to prioritize {tool_name}")
-                        del self.recent_tool_results[other_planner]
-                
-                # Store the new planner result
-                self.recent_tool_results[tool_name] = result
-                print(f"✅ Stored {tool_name} results for future selections")
+                # Store processed chunks
+                if 'chunks' in result:
+                    self.persistent_objects['document_chunks'] = result['chunks']
+                    print(f"💾 Stored {len(result['chunks'])} chunks for future use")
             
-            elif tool_name.endswith('_selector'):
-                # Store selector results but don't clear planner results
-                self.recent_tool_results[tool_name] = result
-                print(f"✅ Stored {tool_name} results")
-            
-            else:
-                # For other tools, just store normally
-                self.recent_tool_results[tool_name] = result
+            # Store result as usual
+            self.recent_tool_results[tool_name] = result
             
             return {
                 'status': 'success',
@@ -675,11 +758,14 @@ Do not explain your reasoning, just provide the tool name or "none"."""
                 'should_regenerate_response': False
             }
         
+        # Extract session_manager from context if available
+        session_manager = context.get('session_manager') if context else None
+        
         # Execute detected tools
         tool_results = []
         for tool_call in tool_calls:
             print(f"🎯 {tool_call['reason']}")
-            result = self.execute_tool(tool_call['tool_name'], tool_call['parameters'])
+            result = self.execute_tool(tool_call['tool_name'], tool_call['parameters'], session_manager)
             tool_results.append(result)
             
             # Store successful tool results for future context
@@ -727,7 +813,7 @@ Do not explain your reasoning, just provide the tool name or "none"."""
         return context
     
     def _integrate_tool_results(self, original_response: str, tool_results: List[Dict[str, Any]]) -> str:
-        """Integrate tool results into the LLM response"""
+        """Enhanced result integration including document processing tools."""
         enhanced_response = original_response
         
         for tool_result in tool_results:
@@ -735,7 +821,57 @@ Do not explain your reasoning, just provide the tool name or "none"."""
                 tool_name = tool_result['tool_name']
                 result_data = tool_result['result']
                 
-                if tool_name == 'flight_planner' and 'flight_options' in result_data:
+                if tool_name == 'document_query':
+                    # Format document query results
+                    query_text = "\n\n" + "="*50 + "\n"
+                    query_text += f"🔍 **DOCUMENT SEARCH RESULTS**\n"
+                    query_text += "="*50 + "\n"
+                    
+                    query_text += f"❓ Query: {result_data.get('query', 'N/A')}\n"
+                    query_text += f"📁 Source: {result_data.get('source_file', 'N/A')}\n"
+                    query_text += f"📊 Total Chunks: {result_data.get('total_chunks', 0)}\n"
+                    
+                    # Show enhanced answer if available (from advanced RAG)
+                    if result_data.get('enhanced_answer'):
+                        query_text += f"\n📄 **ANSWER:**\n{result_data['enhanced_answer']}\n"
+                    elif result_data.get('relevant_chunks'):
+                        # Fallback to showing relevant chunks
+                        query_text += f"🔍 Relevant Chunks Found: {result_data.get('relevant_chunks_found', 0)}\n"
+                        query_text += "\n📄 **RELEVANT CONTENT:**\n"
+                        for chunk in result_data['relevant_chunks'][:3]:  # Show first 3 chunks
+                            query_text += f"   {chunk['chunk_number']}. {chunk['content'][:200]}...\n"
+                    else:
+                        query_text += f"🔍 Relevant Chunks Found: {result_data.get('relevant_chunks_found', 0)}\n"
+                    
+                    query_text += f"\n💡 {result_data.get('summary', 'Query completed.')}\n"
+                    query_text += "="*50
+                    
+                    enhanced_response = query_text + "\n\n" + result_data.get('query', original_response)
+                    
+                elif tool_name == 'document_processor':
+                    # Format document processing results
+                    doc_text = "\n\n" + "="*50 + "\n"
+                    doc_text += "📄 **DOCUMENT PROCESSING COMPLETE!**\n"
+                    doc_text += "="*50 + "\n"
+                    
+                    doc_text += f"📁 Source: {result_data.get('source_file', 'N/A')}\n"
+                    doc_text += f"📊 Document Type: {result_data.get('doc_type', 'N/A')}\n"
+                    doc_text += f"📄 Total Chunks: {result_data.get('total_chunks', 0)}\n"
+                    doc_text += f"⚙️ Processing Mode: {result_data.get('processing_mode', 'N/A')}\n"
+                    
+                    if result_data.get('advanced_rag_system'):
+                        doc_text += f"🧠 RAG System: ✅ Initialized and ready for queries\n"
+                    
+                    doc_text += "\n" + "="*50 + "\n"
+                    doc_text += "💡 Document is now ready! You can:\n"
+                    doc_text += "   - Ask questions about the document content\n"
+                    doc_text += "   - Request summaries or analysis\n"
+                    doc_text += "   - Search for specific information\n"
+                    doc_text += "="*50
+                    
+                    enhanced_response = doc_text + "\n\n" + original_response
+                
+                elif tool_name == 'flight_planner' and 'flight_options' in result_data:
                     # Format flight results prominently at the top
                     flight_text = "\n\n" + "="*50 + "\n"
                     flight_text += "🛫 **FLIGHT SEARCH RESULTS FOUND!**\n"
