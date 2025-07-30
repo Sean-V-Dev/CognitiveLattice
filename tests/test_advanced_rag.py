@@ -5,7 +5,7 @@ Tests the integration between bidirectional RAG, external API, and audit systems
 
 import os
 import json
-from tokensight_advanced_rag import TokenSightAdvancedRAG
+from core.tokensight_advanced_rag import TokenSightAdvancedRAG
 
 def test_advanced_rag_integration():
     """Test the complete advanced RAG integration"""

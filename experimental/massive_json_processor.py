@@ -36,8 +36,8 @@ from datetime import datetime
 
 # TokenSight core imports
 try:
-    from tokensight_advanced_rag import TokenSightAdvancedRAG
-    from memory_manager import initialize_memory
+    from core.tokensight_advanced_rag import TokenSightAdvancedRAG
+    from processing.memory_manager import initialize_memory
     TOKENSIGHT_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ TokenSight core modules not available: {e}")

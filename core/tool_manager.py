@@ -103,18 +103,66 @@ class ToolManager:
                 else:
                     recent_tools_context += f"- {tool_name}: Available for follow-up actions\n"
         
-        # Add lattice/session context if available
+        # Add comprehensive lattice/session context if available
         lattice_context = ""
         if context and context.get('session_manager'):
             session_manager = context['session_manager']
             try:
-                # Check if there are any document processing events in the lattice
+                # Get current active task for full context
+                active_task = session_manager.lattice.get_active_task()
                 all_events = session_manager.lattice.events
+                
+                # Build comprehensive context
+                context_parts = []
+                
+                # 1. Active Task Information
+                if active_task:
+                    task_progress = session_manager.lattice.get_task_progress(active_task)
+                    completed_steps = active_task.get("completed_steps", [])
+                    task_plan = active_task.get("task_plan", [])
+                    
+                    context_parts.append(f"ACTIVE TASK: {active_task.get('task_title', 'Untitled Task')}")
+                    context_parts.append(f"TASK PROGRESS: {task_progress['completed_steps']}/{task_progress['total_steps']} steps completed")
+                    
+                    # Show completed steps with results
+                    if completed_steps:
+                        context_parts.append("COMPLETED STEPS:")
+                        for step in completed_steps:
+                            if step.get('status') == 'completed':
+                                step_desc = step.get('description', 'No description')[:60]
+                                context_parts.append(f"  ✅ Step {step.get('step_number')}: {step_desc}")
+                    
+                    # Show current step
+                    current_step_index = len([s for s in completed_steps if s.get('status') == 'completed'])
+                    if current_step_index < len(task_plan):
+                        current_step = task_plan[current_step_index]
+                        context_parts.append(f"CURRENT STEP: {current_step}")
+                
+                # 2. Recent Tool Results (what's been selected/booked)
+                if hasattr(self, 'recent_tool_results') and self.recent_tool_results:
+                    context_parts.append("SELECTIONS MADE:")
+                    for tool_name, result in self.recent_tool_results.items():
+                        if tool_name == 'flight_selector' and result.get('selected_flight'):
+                            flight = result['selected_flight']
+                            context_parts.append(f"  ✈️ Flight: {flight['airline']} ${flight['price']}")
+                        elif tool_name == 'hotel_selector' and result.get('selected_hotel'):
+                            hotel = result['selected_hotel']
+                            context_parts.append(f"  🏨 Hotel: {hotel['name']} ${hotel['price']}/night")
+                        elif tool_name == 'restaurant_selector' and result.get('selected_restaurant'):
+                            restaurant = result['selected_restaurant']
+                            context_parts.append(f"  🍽️ Restaurant: {restaurant['name']} {restaurant['available_time']}")
+                
+                # 3. Document Processing State
                 doc_events = [e for e in all_events if e.get("type") == "document_processed"]
                 if doc_events:
                     latest_doc = doc_events[-1]
                     source_file = latest_doc.get("source_file", "unknown")
-                    lattice_context = f"\n\nDOCUMENT STATE: A document ({source_file}) has been processed and content is available in memory.\n"
+                    context_parts.append(f"DOCUMENT STATE: {source_file} processed and ready for queries")
+                
+                # Combine all context
+                if context_parts:
+                    lattice_context = "\n\nSESSION CONTEXT:\n" + "\n".join(context_parts) + "\n"
+                    
             except Exception:
                 pass  # Ignore lattice access errors
         
@@ -134,11 +182,13 @@ DECISION FRAMEWORK:
 2. Is this a request to process/load a new document, or query existing document content?
 3. Do they need search/planning functionality (flights, hotels, restaurants)?
 4. Are they selecting from previous results (option numbers)?
+5. Are they asking for task progress/summary ("what have we done", "show progress")?
 
 IMPORTANT GUIDELINES:
 - Use "document_processor" for NEW document processing requests
 - Use "document_query" for questions about ALREADY PROCESSED documents
 - Use planners for initial searches, selectors for choosing options
+- For task summary questions ("what have we done", "show progress", "what's on itinerary"), respond "none" - these need full context sent to external API
 - Trust your judgment - you understand context better than rigid rules
 
 Respond with ONLY the tool name (e.g., "document_query") or "none" if no tool is needed."""

@@ -23,7 +23,7 @@ from datetime import datetime
 
 # Core imports
 from massive_json_processor import MassiveJSONProcessor
-from external_api_client import ExternalAPIClient
+from core.external_api_client import ExternalAPIClient
 
 # Embedding and search imports
 try:

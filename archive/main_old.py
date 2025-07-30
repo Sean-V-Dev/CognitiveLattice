@@ -7,17 +7,17 @@ from datetime import datetime
 from utils.dictionary_manager import expand_dictionary, clean_input
 from encoder.text_to_image import encode_text_to_image
 from decoder.image_to_text import decode_image_to_text
-from text_processor import extract_paragraphs, chunk_paragraphs
-from file_handler import process_file
-from llama_client import run_llama_inference_with_context, diagnose_content_type, extract_key_facts, SUMMARY_TEMPLATES, diagnose_user_intent
-from page_extractor import integrate_page_based_extraction, PAGE_EXTRACTION_AVAILABLE
-from memory_manager import search_memory, initialize_memory
-from external_api_client import ExternalAPIClient, identify_relevant_chunks_for_external_analysis, save_external_analysis_results
+from processing.text_processor import extract_paragraphs, chunk_paragraphs
+from processing.file_handler import process_file
+from core.llama_client import run_llama_inference_with_context, diagnose_content_type, extract_key_facts, SUMMARY_TEMPLATES, diagnose_user_intent
+from processing.page_extractor import integrate_page_based_extraction, PAGE_EXTRACTION_AVAILABLE
+from processing.memory_manager import search_memory, initialize_memory
+from core.external_api_client import ExternalAPIClient, identify_relevant_chunks_for_external_analysis, save_external_analysis_results
 from core.tool_manager import ToolManager
 from core.cognitive_lattice import CognitiveLattice, SessionManager
 
 # NEW: Advanced RAG system integration
-from tokensight_advanced_rag import TokenSightAdvancedRAG
+from core.tokensight_advanced_rag import TokenSightAdvancedRAG
 
 
 # === Initialize memory to store chunk summaries === #

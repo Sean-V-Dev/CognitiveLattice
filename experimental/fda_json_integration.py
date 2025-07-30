@@ -35,7 +35,7 @@ from massive_json_processor import MassiveJSONProcessor
 
 # Import TokenSight components if available
 try:
-    from tokensight_advanced_rag import TokenSightAdvancedRAG
+    from core.tokensight_advanced_rag import TokenSightAdvancedRAG
     TOKENSIGHT_AVAILABLE = True
 except ImportError:
     print("⚠️ TokenSight Advanced RAG not available - running in extraction-only mode")

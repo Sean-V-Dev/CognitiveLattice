@@ -8,8 +8,8 @@ Integration layer for TokenSight's new Bidirectional RAG        # 1. Find releva
 Provides backward compatibility while enabling advanced multi-RAG capabilities
 """
 
-from bidirectional_rag import BidirectionalRAGSystem, create_bidirectional_rag
-from external_api_client import ExternalAPIClient
+from core.bidirectional_rag import BidirectionalRAGSystem, create_bidirectional_rag
+from core.external_api_client import ExternalAPIClient
 import json
 import numpy as np
 from typing import List, Dict, Any, Optional

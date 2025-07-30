@@ -4,10 +4,10 @@ import json
 import traceback
 from typing import List, Dict, Any
 from datetime import datetime
-from external_api_client import ExternalAPIClient
+from core.external_api_client import ExternalAPIClient
 from core.tool_manager import ToolManager
 from core.cognitive_lattice import CognitiveLattice, SessionManager
-from llama_client import diagnose_user_intent
+from core.llama_client import diagnose_user_intent
 
 def main():
     # === Initialize session manager and cognitive lattice === #
@@ -347,31 +347,94 @@ def main():
                         current_step_description = task_plan[current_step_index]
                         print(f"🎯 Executing step {current_step_index + 1}/{len(task_plan)}: {current_step_description}")
                         
-                        # Build tool context for external API
+                        # Build comprehensive context for external API
                         tool_context = ""
                         if hasattr(tool_manager, 'recent_tool_results') and tool_manager.recent_tool_results:
                             tool_context = "\n\nRECENT TOOL RESULTS AVAILABLE:\n"
                             for tool_name, tool_result in tool_manager.recent_tool_results.items():
                                 tool_context += f"\n{tool_name.upper()} RESULTS:\n"
-                                if tool_name == 'flight_planner' and 'flight_options' in tool_result:
-                                    tool_context += f"Route: {tool_result.get('route', 'N/A')}\n"
-                                    tool_context += f"Available Options:\n"
-                                    for i, flight in enumerate(tool_result['flight_options'], 1):
-                                        tool_context += f"  Option {i}: {flight['airline']} - ${flight['price']:.2f} - {flight['stops']} stops - {flight['departure_time']}\n"
-                                elif tool_name == 'hotel_planner' and 'hotel_options' in tool_result:
-                                    tool_context += f"Location: {tool_result.get('search_parameters', {}).get('location', 'N/A').title()}\n"
-                                    tool_context += f"Available Options:\n"
-                                    for i, hotel in enumerate(tool_result['hotel_options'], 1):
-                                        tool_context += f"  Option {i}: {hotel['name']} - ${hotel['price']:.2f}/night - {hotel['rating']}/5 stars - {hotel['room_type']}\n"
-                                elif tool_name == 'restaurant_planner' and 'restaurant_options' in tool_result:
-                                    tool_context += f"Location: {tool_result.get('search_parameters', {}).get('location', 'N/A').title()}\n"
-                                    tool_context += f"Available Options:\n"
-                                    for i, restaurant in enumerate(tool_result['restaurant_options'], 1):
-                                        tool_context += f"  Option {i}: {restaurant['name']} - {restaurant['cuisine']} - {restaurant['price_range']} - {restaurant['available_time']}\n"
+                                
+                                # Generic tool result formatting - works for ANY tool
+                                if isinstance(tool_result, dict):
+                                    # Look for common patterns in tool results
+                                    if 'options' in str(tool_result).lower():
+                                        # Tool provided options/choices
+                                        for key, value in tool_result.items():
+                                            if isinstance(value, list) and len(value) > 0:
+                                                tool_context += f"{key.replace('_', ' ').title()}:\n"
+                                                for i, option in enumerate(value[:5], 1):  # Show max 5 options
+                                                    if isinstance(option, dict):
+                                                        # Format option details generically
+                                                        option_str = ", ".join([f"{k}: {v}" for k, v in option.items() if not k.startswith('_')])
+                                                        tool_context += f"  Option {i}: {option_str[:100]}...\n"
+                                                    else:
+                                                        tool_context += f"  Option {i}: {str(option)[:100]}...\n"
+                                    elif 'selected' in str(tool_result).lower():
+                                        # Tool made a selection
+                                        for key, value in tool_result.items():
+                                            if 'selected' in key.lower():
+                                                if isinstance(value, dict):
+                                                    selection_str = ", ".join([f"{k}: {v}" for k, v in value.items() if not k.startswith('_')])
+                                                    tool_context += f"SELECTED: {selection_str[:150]}...\n"
+                                                else:
+                                                    tool_context += f"SELECTED: {str(value)[:150]}...\n"
+                                    else:
+                                        # Generic formatting for any other tool result
+                                        result_str = str(tool_result)[:300]
+                                        tool_context += f"{result_str}...\n"
                                 else:
-                                    # Generic tool result formatting
-                                    tool_context += f"{str(tool_result)[:200]}...\n"
+                                    # Non-dict result
+                                    tool_context += f"{str(tool_result)[:300]}...\n"
+                                    
                             tool_context += "\nNOTE: User may refer to these results by option number (e.g., 'option 2' means the second option above).\n"
+                        
+                        # Add dynamic task context from cognitive lattice
+                        dynamic_context = ""
+                        if current_task:
+                            # Extract dynamic context from the actual task and session history
+                            dynamic_context = "\n\nTASK CONTEXT:\n"
+                            dynamic_context += f"- Original Request: {current_task.get('query', 'Unknown')}\n"
+                            dynamic_context += f"- Task Type: {current_task.get('task_title', 'Unknown Task')}\n"
+                            dynamic_context += f"- Started: {current_task.get('created', 'Unknown')}\n"
+                            
+                            # Extract key details from session events and completed steps
+                            session_events = session_manager.lattice.event_log
+                            completed_steps = current_task.get('completed_steps', [])
+                            
+                            # Look for important contextual information in the session
+                            context_details = []
+                            for event in session_events[-10:]:  # Look at recent events
+                                if event.get('type') == 'tool_execution':
+                                    tools_used = event.get('tools_used', [])
+                                    if tools_used:
+                                        context_details.append(f"Used tools: {', '.join(tools_used)}")
+                            
+                            # Show what's been accomplished so far
+                            if completed_steps:
+                                dynamic_context += f"- Progress: {len(completed_steps)} steps completed\n"
+                                for step in completed_steps[-3:]:  # Show last 3 steps
+                                    step_num = step.get('step_number', '?')
+                                    step_desc = step.get('description', 'Unknown step')[:50]
+                                    dynamic_context += f"  Step {step_num}: {step_desc}...\n"
+                            
+                            # Show current tool results/selections if available
+                            if hasattr(tool_manager, 'recent_tool_results') and tool_manager.recent_tool_results:
+                                dynamic_context += "- Current Selections:\n"
+                                for tool_name, result in tool_manager.recent_tool_results.items():
+                                    # Generic selection detection - works for ANY tool
+                                    if isinstance(result, dict):
+                                        for key, value in result.items():
+                                            if 'selected' in key.lower() and isinstance(value, dict):
+                                                # Extract key details from any selected item
+                                                item_details = []
+                                                for detail_key, detail_value in value.items():
+                                                    if not detail_key.startswith('_') and detail_value:
+                                                        item_details.append(f"{detail_key}: {detail_value}")
+                                                
+                                                if item_details:
+                                                    selection_summary = ", ".join(item_details[:3])  # Show first 3 details
+                                                    tool_display_name = tool_name.replace('_', ' ').title()
+                                                    dynamic_context += f"  ✅ {tool_display_name}: {selection_summary[:100]}...\n"
                         
                         step_execution_prompt = f"""You are helping a user with a step-by-step task plan. Here is the complete context:
 
@@ -383,12 +446,14 @@ CURRENT STEP DESCRIPTION: "{current_step_description}"
 
 USER INPUT FOR THIS STEP: "{user_query}"
 
-{tool_context}
+{dynamic_context}{tool_context}
 
 INSTRUCTIONS: 
 - The user has provided input specifically for Step {current_step_index + 1}: "{current_step_description}"
 - Factor in the user's new input and provide a response that addresses this specific step
+- IMPORTANT: Use the TASK CONTEXT above to understand what this task is really about
 - If user refers to options by number (e.g., "option 2"), use the tool results context above
+- Consider what's already been selected (marked with ✅)
 - Do NOT advance to other steps - focus only on completing or updating Step {current_step_index + 1}
 - Provide a helpful, actionable response for this current step based on the user's input
 

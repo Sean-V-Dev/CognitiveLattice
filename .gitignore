@@ -226,3 +226,18 @@ __pycache__
 
 
 drug-label-0001-of-0013.json
+
+# Python cache
+__pycache__/
+
+# Generated session and log files
+*.json
+*.txt
+
+# Cache and temp directories
+cache/
+decoded_chunks/
+encoded_chunks/
+pdf_pages/
+
+*.pdf
