@@ -1,5 +1,5 @@
 """
-Integration layer for TokenSight's new Bidirectional RAG        # 1. Find relevant chunks using the bidirectional RAG system
+Integration layer for CognitiveLattice's new Bidirectional RAG        # 1. Find relevant chunks using the bidirectional RAG system
         local_search_results = self.bidirectional_rag.search(
             query, 
             top_k=max_chunks,
@@ -14,9 +14,9 @@ import json
 import numpy as np
 from typing import List, Dict, Any, Optional
 
-class TokenSightAdvancedRAG:
+class CognitiveLatticeAdvancedRAG:
     """
-    Advanced RAG integration for TokenSight with multi-domain routing and audit
+    Advanced RAG integration for CognitiveLattice with multi-domain routing and audit
     """
     
     def __init__(self, enable_external_api: bool = True):
@@ -216,7 +216,7 @@ class TokenSightAdvancedRAG:
         """Get recent processing history"""
         return self.processing_history[-limit:] if self.processing_history else []
     
-    def save_audit_report(self, filepath: str = "tokensight_audit_report.json") -> None:
+    def save_audit_report(self, filepath: str = "CognitiveLattice_audit_report.json") -> None:
         """Save comprehensive audit report with JSON serialization handling"""
         try:
             # Convert numpy arrays to lists for JSON serialization
@@ -301,17 +301,17 @@ class TokenSightAdvancedRAG:
         return recommendations
 
 
-# Backward compatibility functions for existing TokenSight code
+# Backward compatibility functions for existing CognitiveLattice code
 def process_chunks_advanced(chunks: List[Dict[str, Any]], 
-                           document_info: Dict[str, Any] = None) -> TokenSightAdvancedRAG:
+                           document_info: Dict[str, Any] = None) -> CognitiveLatticeAdvancedRAG:
     """
     Process chunks through advanced RAG system (backward compatible)
     """
-    advanced_rag = TokenSightAdvancedRAG()
+    advanced_rag = CognitiveLatticeAdvancedRAG()
     advanced_rag.process_document_chunks(chunks, document_info)
     return advanced_rag
 
-def query_advanced_rag(rag_system: TokenSightAdvancedRAG, query: str, 
+def query_advanced_rag(rag_system: CognitiveLatticeAdvancedRAG, query: str, 
                       **kwargs) -> Dict[str, Any]:
     """
     Query the advanced RAG system (backward compatible)

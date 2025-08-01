@@ -143,9 +143,9 @@ def initialize_rag_system(chunk_storage: List[Dict[str, Any]],
     print("🧠 Initializing RAG system...")
     
     try:
-        from core.tokensight_advanced_rag import TokenSightAdvancedRAG
+        from core.CognitiveLattice_advanced_rag import CognitiveLatticeAdvancedRAG
         
-        advanced_rag = TokenSightAdvancedRAG(enable_external_api=enable_external_api)
+        advanced_rag = CognitiveLatticeAdvancedRAG(enable_external_api=enable_external_api)
         
         doc_info = {
             "source": source_input,

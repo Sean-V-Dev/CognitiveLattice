@@ -1,5 +1,5 @@
 """
-External API Integration for TokenSight
+External API Integration for CognitiveLattice
 Sends relevant chunks to external APIs (OpenAI, Claude, etc.) for enhanced analysis
 """
 
@@ -196,7 +196,7 @@ Now create the plan for: "{user_query}"
             return {"success": False, "error": str(e)}
 
     """
-    Client for sending TokenSight chunks to external APIs
+    Client for sending CognitiveLattice chunks to external APIs
     """
     
     def __init__(self, api_provider="openai"):
@@ -277,7 +277,7 @@ Now create the plan for: "{user_query}"
         Send a chunk to external API for enhanced analysis
         
         Args:
-            chunk_data: The chunk metadata from TokenSight RAG system
+            chunk_data: The chunk metadata from CognitiveLattice RAG system
             analysis_type: Type of analysis ("comprehensive", "factual", "technical", "visual")
         
         Returns:

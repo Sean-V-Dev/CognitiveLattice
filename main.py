@@ -18,7 +18,7 @@ def main():
     tool_manager = ToolManager()
     print(f"🔧 Tool Manager initialized")
 
-    print("📋 TokenSight Interactive Agent")
+    print("📋 CognitiveLattice Interactive Agent")
     print("=" * 50)
     
     # Initialize external API client

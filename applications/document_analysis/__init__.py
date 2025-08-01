@@ -1,1 +1,1 @@
-"""TokenSight applications.document_analysis package"""
+"""CognitiveLattice applications.document_analysis package"""

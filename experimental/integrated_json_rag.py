@@ -1,5 +1,5 @@
 """
-TokenSight Integrated JSON RAG System
+CognitiveLattice Integrated JSON RAG System
 ====================================
 
 Complete pipeline for massive JSON ingestion, semantic search, and LLM querying
@@ -99,7 +99,7 @@ class IntegratedJSONRAG:
             specialized_models: Use multiple domain-specific embedding models
         """
         
-        print("🚀 Initializing TokenSight Integrated JSON RAG System")
+        print("🚀 Initializing CognitiveLattice Integrated JSON RAG System")
         print("=" * 60)
         
         self.chunk_size = chunk_size
@@ -1197,7 +1197,7 @@ def demo_integrated_system():
     """
     Demonstration of the complete integrated system
     """
-    print("🧪 TOKENSIGHT INTEGRATED JSON RAG - DEMO")
+    print("🧪 CognitiveLattice INTEGRATED JSON RAG - DEMO")
     print("=" * 60)
     
     # Initialize the system
@@ -1255,7 +1255,7 @@ def demo_integrated_system():
     
     else:
         print(f"❌ FDA file not found: {fda_file}")
-        print("   Please ensure the file exists in the TokenSight directory")
+        print("   Please ensure the file exists in the CognitiveLattice directory")
 
 
 if __name__ == "__main__":

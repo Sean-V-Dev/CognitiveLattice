@@ -1,5 +1,5 @@
 """
-Cognitive Lattice - Core session and task management system for TokenSight
+Cognitive Lattice - Core session and task management system for CognitiveLattice
 Extracted from main.py for better modularity and testability
 """
 

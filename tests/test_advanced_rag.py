@@ -1,18 +1,18 @@
 """
-TokenSight Advanced RAG System Test
+CognitiveLattice Advanced RAG System Test
 Tests the integration between bidirectional RAG, external API, and audit systems
 """
 
 import os
 import json
-from core.tokensight_advanced_rag import TokenSightAdvancedRAG
+from core.CognitiveLattice_advanced_rag import CognitiveLatticeAdvancedRAG
 
 def test_advanced_rag_integration():
     """Test the complete advanced RAG integration"""
-    print("🧪 TokenSight Advanced RAG Integration Test")
+    print("🧪 CognitiveLattice Advanced RAG Integration Test")
     print("=" * 50)
     
-    # Sample document chunks (simulating processed TokenSight output)
+    # Sample document chunks (simulating processed CognitiveLattice output)
     sample_chunks = [
         {
             "chunk_id": "test_chunk_1",
@@ -60,7 +60,7 @@ def test_advanced_rag_integration():
     print("1️⃣ Initializing Advanced RAG System...")
     try:
         # Initialize system
-        advanced_rag = TokenSightAdvancedRAG(enable_external_api=True)
+        advanced_rag = CognitiveLatticeAdvancedRAG(enable_external_api=True)
         
         # Process chunks
         advanced_rag.process_document_chunks(sample_chunks, doc_info)
@@ -203,7 +203,7 @@ def test_minimal_integration():
     
     try:
         # Initialize without external API
-        minimal_rag = TokenSightAdvancedRAG(enable_external_api=False)
+        minimal_rag = CognitiveLatticeAdvancedRAG(enable_external_api=False)
         
         # Simple test chunk
         test_chunk = [{
@@ -234,7 +234,7 @@ def test_minimal_integration():
         return False
 
 if __name__ == "__main__":
-    print("🚀 Starting TokenSight Advanced RAG Tests...")
+    print("🚀 Starting CognitiveLattice Advanced RAG Tests...")
     
     # Run comprehensive test
     success = test_advanced_rag_integration()
@@ -247,7 +247,7 @@ if __name__ == "__main__":
     print(f"   Minimal Integration: {'✅ PASSED' if minimal_success else '❌ FAILED'}")
     
     if success or minimal_success:
-        print("\n🎉 TokenSight Advanced RAG system is ready!")
+        print("\n🎉 CognitiveLattice Advanced RAG system is ready!")
         print("   You can now run 'python main.py' to see the full integration in action.")
     else:
         print("\n⚠️ Some tests failed. Check the error messages above.")

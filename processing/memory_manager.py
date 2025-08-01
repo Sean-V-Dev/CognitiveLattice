@@ -1,5 +1,5 @@
 """
-Memory Management Module for TokenSight
+Memory Management Module for CognitiveLattice
 Handles memory search and chunk memory operations with semantic search capabilities
 """
 

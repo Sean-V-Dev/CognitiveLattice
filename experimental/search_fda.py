@@ -22,7 +22,7 @@ def initialize_rag_system():
     global rag_system
     
     if rag_system is None:
-        print("🚀 Initializing TokenSight Integrated RAG System...")
+        print("🚀 Initializing CognitiveLattice Integrated RAG System...")
         print("=" * 60)
         
         rag_system = IntegratedJSONRAG(
@@ -43,7 +43,7 @@ def initialize_rag_system():
     global rag_system
     
     if rag_system is None:
-        print("� Initializing TokenSight Integrated RAG System...")
+        print("� Initializing CognitiveLattice Integrated RAG System...")
         print("=" * 60)
         
         rag_system = IntegratedJSONRAG(
@@ -71,7 +71,7 @@ def initialize_rag_system():
             return True
         else:
             print(f"❌ FDA file not found: {fda_file}")
-            print("   Please ensure the FDA file exists in the TokenSight directory")
+            print("   Please ensure the FDA file exists in the CognitiveLattice directory")
             return False
     
     return True
@@ -224,7 +224,7 @@ def main():
     """
     Interactive FDA search interface with integrated RAG
     """
-    print("🏥 TOKENSIGHT FDA INTEGRATED RAG SEARCH")
+    print("🏥 CognitiveLattice FDA INTEGRATED RAG SEARCH")
     print("=" * 60)
     print("Advanced AI-powered search with hallucination prevention")
     print()

@@ -1,5 +1,5 @@
 """
-LLaMA Client Module for TokenSight
+LLaMA Client Module for CognitiveLattice
 Handles all LLaMA model interactions, prompts, and content analysis
 """
 

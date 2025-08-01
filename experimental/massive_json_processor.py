@@ -1,5 +1,5 @@
 """
-TokenSight Massive JSON Processor
+CognitiveLattice Massive JSON Processor
 ==================================
 
 Specialized streaming processor for gigantic JSON API files (multi-million line datasets)
@@ -7,7 +7,7 @@ This module handles large-scale structured data ingestion that would otherwise c
 
 IMPORTANT SECURITY NOTE:
 ========================
-This processor bypasses TokenSight's standard encryption/encoding pipeline for PROOF OF CONCEPT ONLY.
+This processor bypasses CognitiveLattice's standard encryption/encoding pipeline for PROOF OF CONCEPT ONLY.
 The steganographic encoding layer is skipped due to:
 1. Scale limitations (1.4M+ lines per file would overwhelm current encoding pipeline)
 2. JSON structure preservation requirements 
@@ -16,11 +16,11 @@ The steganographic encoding layer is skipped due to:
 PRODUCTION CONSIDERATIONS:
 =========================
 - For production deployments with adequate system resources, the full encryption pipeline should be used
-- Users with sufficient memory/processing power can route gigantic files through standard TokenSight pipeline
+- Users with sufficient memory/processing power can route gigantic files through standard CognitiveLattice pipeline
 - This bypass is a temporary architectural decision for demonstration purposes
 - Future versions should include streaming-compatible encryption options
 
-Author: TokenSight Framework
+Author: CognitiveLattice Framework
 Date: July 2025
 Purpose: Handle FDA-scale JSON datasets and similar massive structured data
 """
@@ -34,31 +34,31 @@ from pathlib import Path
 import time
 from datetime import datetime
 
-# TokenSight core imports
+# CognitiveLattice core imports
 try:
-    from core.tokensight_advanced_rag import TokenSightAdvancedRAG
+    from core.CognitiveLattice_advanced_rag import CognitiveLatticeAdvancedRAG
     from processing.memory_manager import initialize_memory
-    TOKENSIGHT_AVAILABLE = True
+    CognitiveLattice_AVAILABLE = True
 except ImportError as e:
-    print(f"⚠️ TokenSight core modules not available: {e}")
+    print(f"⚠️ CognitiveLattice core modules not available: {e}")
     print("   Running in standalone mode...")
-    TOKENSIGHT_AVAILABLE = False
+    CognitiveLattice_AVAILABLE = False
 
 
 class MassiveJSONProcessor:
     """
-    Streaming processor for gigantic JSON files that bypass standard TokenSight encryption
+    Streaming processor for gigantic JSON files that bypass standard CognitiveLattice encryption
     
     Features:
     - Memory-efficient streaming JSON parsing
     - Configurable chunk size and batch processing  
-    - Integration with TokenSight RAG systems
+    - Integration with CognitiveLattice RAG systems
     - Progress tracking and recovery for long-running jobs
     - Flexible JSON structure detection and extraction
     """
     
     def __init__(self, 
-                 tokensight_rag: Optional['TokenSightAdvancedRAG'] = None,
+                 CognitiveLattice_rag: Optional['CognitiveLatticeAdvancedRAG'] = None,
                  chunk_size: int = 1000,
                  enable_progress_saving: bool = True,
                  temp_dir: str = "massive_json_temp"):
@@ -66,12 +66,12 @@ class MassiveJSONProcessor:
         Initialize the massive JSON processor
         
         Args:
-            tokensight_rag: TokenSight RAG system for processing chunks
+            CognitiveLattice_rag: CognitiveLattice RAG system for processing chunks
             chunk_size: Number of JSON records to process in each batch
             enable_progress_saving: Save progress periodically for recovery
             temp_dir: Directory for temporary files and progress tracking
         """
-        self.tokensight_rag = tokensight_rag
+        self.CognitiveLattice_rag = CognitiveLattice_rag
         self.chunk_size = chunk_size
         self.enable_progress_saving = enable_progress_saving
         self.temp_dir = Path(temp_dir)
@@ -291,14 +291,14 @@ class MassiveJSONProcessor:
     def extract_meaningful_chunks(self, json_records: List[Dict[str, Any]], 
                                  extraction_config: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
-        Convert raw JSON records into meaningful text chunks for TokenSight processing
+        Convert raw JSON records into meaningful text chunks for CognitiveLattice processing
         
         Args:
             json_records: List of JSON record dictionaries
             extraction_config: Configuration for field extraction and text generation
             
         Returns:
-            List of structured chunks suitable for TokenSight RAG processing
+            List of structured chunks suitable for CognitiveLattice RAG processing
         """
         if extraction_config is None:
             # Default extraction config - attempts to handle generic JSON structures
@@ -342,7 +342,7 @@ class MassiveJSONProcessor:
                 if len(full_text) > extraction_config['max_text_length']:
                     full_text = full_text[:extraction_config['max_text_length']] + "... [truncated]"
                 
-                # Create TokenSight-compatible chunk
+                # Create CognitiveLattice-compatible chunk
                 chunk_data = {
                     "chunk_id": f"json_record_{self.stats['total_records_processed'] + i + 1}",
                     "content": full_text,
@@ -425,8 +425,8 @@ class MassiveJSONProcessor:
                     print("⚠️ No meaningful chunks extracted from this batch")
                     continue
                 
-                # Process through TokenSight RAG if available
-                if self.tokensight_rag and TOKENSIGHT_AVAILABLE:
+                # Process through CognitiveLattice RAG if available
+                if self.CognitiveLattice_rag and CognitiveLattice_AVAILABLE:
                     try:
                         doc_info = {
                             "source": str(file_path),
@@ -437,11 +437,11 @@ class MassiveJSONProcessor:
                             "encryption_bypassed": True
                         }
                         
-                        self.tokensight_rag.process_document_chunks(meaningful_chunks, doc_info)
-                        print(f"   ✅ Added {len(meaningful_chunks)} chunks to TokenSight RAG")
+                        self.CognitiveLattice_rag.process_document_chunks(meaningful_chunks, doc_info)
+                        print(f"   ✅ Added {len(meaningful_chunks)} chunks to CognitiveLattice RAG")
                         
                     except Exception as e:
-                        print(f"   ⚠️ TokenSight RAG processing error: {e}")
+                        print(f"   ⚠️ CognitiveLattice RAG processing error: {e}")
                         # Continue processing even if RAG fails
                 
                 # Save intermediate results
@@ -582,7 +582,7 @@ def main():
     """
     Demo/test function for the massive JSON processor
     """
-    print("🧪 TokenSight Massive JSON Processor - Demo Mode")
+    print("🧪 CognitiveLattice Massive JSON Processor - Demo Mode")
     print("=" * 60)
     
     # Initialize processor

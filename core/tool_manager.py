@@ -1,5 +1,5 @@
 """
-Tool Manager for TokenSight Framework
+Tool Manager for CognitiveLattice Framework
 Detects when tools should be used and executes them automatically.
 """
 
@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 
 class ToolManager:
     """
-    Manages tool detection, loading, and execution for the TokenSight framework.
+    Manages tool detection, loading, and execution for the CognitiveLattice framework.
     """
     
     def __init__(self, tools_directory="tools"):

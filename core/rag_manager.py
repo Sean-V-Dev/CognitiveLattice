@@ -1,5 +1,5 @@
 """
-Session-based RAG system manager for TokenSight
+Session-based RAG system manager for CognitiveLattice
 Handles storage and retrieval of RAG systems without JSON serialization issues
 """
 
@@ -22,7 +22,7 @@ class RAGSystemManager:
         
         Args:
             document_id: Unique identifier for the document (e.g., file path + timestamp)
-            rag_system: The TokenSightAdvancedRAG instance
+            rag_system: The CognitiveLatticeAdvancedRAG instance
             metadata: Serializable metadata about the RAG system
         
         Returns:

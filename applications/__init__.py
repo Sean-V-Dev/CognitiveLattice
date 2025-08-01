@@ -1,1 +1,1 @@
-"""TokenSight applications package"""
+"""CognitiveLattice applications package"""

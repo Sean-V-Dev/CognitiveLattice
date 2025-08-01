@@ -17,7 +17,7 @@ from core.tool_manager import ToolManager
 from core.cognitive_lattice import CognitiveLattice, SessionManager
 
 # NEW: Advanced RAG system integration
-from core.tokensight_advanced_rag import TokenSightAdvancedRAG
+from core.CognitiveLattice_advanced_rag import CognitiveLatticeAdvancedRAG
 
 
 # === Initialize memory to store chunk summaries === #
@@ -39,7 +39,7 @@ def main():
     tool_manager = ToolManager()
     print(f"🔧 Tool Manager initialized")
 
-    print("📋 TokenSight Enhanced PDF Processing")
+    print("📋 CognitiveLattice Enhanced PDF Processing")
     print("=" * 50)
     
     # Quick readiness check
@@ -263,7 +263,7 @@ def main():
     
     try:
         # Initialize advanced RAG system
-        advanced_rag = TokenSightAdvancedRAG(enable_external_api=True)
+        advanced_rag = CognitiveLatticeAdvancedRAG(enable_external_api=True)
         
         # Use the raw chunks we just processed (no need to re-process)
         print(f"📄 Using {len(chunk_storage)} raw text chunks for advanced processing...")
@@ -314,7 +314,7 @@ def main():
                     print(f"   ⚠️ Risk level: {risk_level}")
         
         # Generate audit report
-        advanced_rag.save_audit_report("tokensight_audit_report.json")
+        advanced_rag.save_audit_report("CognitiveLattice_audit_report.json")
         print(f"\n📊 Comprehensive audit report saved")
         
     except Exception as e:

@@ -1,8 +1,8 @@
 """
-TokenSight FDA JSON Integration Script
+CognitiveLattice FDA JSON Integration Script
 =====================================
 
-Integration script for processing massive FDA JSON API files with TokenSight.
+Integration script for processing massive FDA JSON API files with CognitiveLattice.
 This script demonstrates how to use the MassiveJSONProcessor with real FDA-scale datasets.
 
 USAGE EXAMPLES:
@@ -19,7 +19,7 @@ USAGE EXAMPLES:
 
 SECURITY NOTE:
 =============
-This script bypasses TokenSight's encryption layer for proof-of-concept demonstration.
+This script bypasses CognitiveLattice's encryption layer for proof-of-concept demonstration.
 For production use with sensitive data, implement streaming-compatible encryption.
 """
 
@@ -33,13 +33,13 @@ from typing import Dict, List, Any, Optional
 # Import our massive JSON processor
 from massive_json_processor import MassiveJSONProcessor
 
-# Import TokenSight components if available
+# Import CognitiveLattice components if available
 try:
-    from core.tokensight_advanced_rag import TokenSightAdvancedRAG
-    TOKENSIGHT_AVAILABLE = True
+    from core.CognitiveLattice_advanced_rag import CognitiveLatticeAdvancedRAG
+    CognitiveLattice_AVAILABLE = True
 except ImportError:
-    print("⚠️ TokenSight Advanced RAG not available - running in extraction-only mode")
-    TOKENSIGHT_AVAILABLE = False
+    print("⚠️ CognitiveLattice Advanced RAG not available - running in extraction-only mode")
+    CognitiveLattice_AVAILABLE = False
 
 
 class FDAJSONProcessor:
@@ -48,25 +48,25 @@ class FDAJSONProcessor:
     Handles pharmaceutical/medical data extraction and safety considerations
     """
     
-    def __init__(self, enable_tokensight_rag: bool = True):
+    def __init__(self, enable_CognitiveLattice_rag: bool = True):
         """Initialize FDA JSON processor"""
         
-        # Initialize TokenSight RAG with medical specialization if available
-        self.tokensight_rag = None
-        if enable_tokensight_rag and TOKENSIGHT_AVAILABLE:
+        # Initialize CognitiveLattice RAG with medical specialization if available
+        self.CognitiveLattice_rag = None
+        if enable_CognitiveLattice_rag and CognitiveLattice_AVAILABLE:
             try:
                 # Use medical/scientific embeddings for pharmaceutical data
-                self.tokensight_rag = TokenSightAdvancedRAG(
+                self.CognitiveLattice_rag = CognitiveLatticeAdvancedRAG(
                     enable_external_api=True,
                     safety_threshold=0.8  # Higher safety threshold for medical data
                 )
-                print("✅ TokenSight Advanced RAG initialized with medical specialization")
+                print("✅ CognitiveLattice Advanced RAG initialized with medical specialization")
             except Exception as e:
-                print(f"⚠️ Could not initialize TokenSight RAG: {e}")
+                print(f"⚠️ Could not initialize CognitiveLattice RAG: {e}")
         
         # Initialize massive JSON processor
         self.processor = MassiveJSONProcessor(
-            tokensight_rag=self.tokensight_rag,
+            CognitiveLattice_rag=self.CognitiveLattice_rag,
             chunk_size=1000,  # Default for FDA data
             enable_progress_saving=True,
             temp_dir="fda_processing_temp"
@@ -276,13 +276,13 @@ class FDAJSONProcessor:
 
 def main():
     """Command-line interface for FDA JSON processing"""
-    parser = argparse.ArgumentParser(description='Process massive FDA JSON files with TokenSight')
+    parser = argparse.ArgumentParser(description='Process massive FDA JSON files with CognitiveLattice')
     
     parser.add_argument('--file', type=str, help='Single FDA JSON file to process')
     parser.add_argument('--directory', type=str, help='Directory containing FDA JSON files')
     parser.add_argument('--chunk-size', type=int, default=1000, help='Records per processing batch')
     parser.add_argument('--config', type=str, help='Custom extraction configuration JSON file')
-    parser.add_argument('--no-rag', action='store_true', help='Disable TokenSight RAG integration')
+    parser.add_argument('--no-rag', action='store_true', help='Disable CognitiveLattice RAG integration')
     parser.add_argument('--output', type=str, default='fda_processing_results.json', help='Output results file')
     
     args = parser.parse_args()
@@ -328,7 +328,7 @@ def main():
     
     # Initialize FDA processor
     try:
-        processor = FDAJSONProcessor(enable_tokensight_rag=not args.no_rag)
+        processor = FDAJSONProcessor(enable_CognitiveLattice_rag=not args.no_rag)
         
         # Process the files
         results = processor.process_fda_files(

@@ -1,5 +1,5 @@
 """
-File Handling Module for TokenSight
+File Handling Module for CognitiveLattice
 Handles PDF and text file reading, processing, and sanitization
 """
 

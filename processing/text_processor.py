@@ -1,5 +1,5 @@
 """
-Text Processing Module for TokenSight
+Text Processing Module for CognitiveLattice
 Handles text chunking, paragraph extraction, and sentence splitting
 """
 

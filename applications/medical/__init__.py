@@ -1,1 +1,1 @@
-"""TokenSight applications.medical package"""
+"""CognitiveLattice applications.medical package"""

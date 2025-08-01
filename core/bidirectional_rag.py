@@ -1,5 +1,5 @@
 """
-Bidirectional RAG System for TokenSight
+Bidirectional RAG System for CognitiveLattice
 Multi-specialized embedding models with intelligent routing and audit capabilities
 Designed for high-stakes technical documents requiring precision and auditability
 """

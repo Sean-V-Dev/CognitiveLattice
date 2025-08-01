@@ -1,5 +1,5 @@
 """
-Page Extraction Module for TokenSight
+Page Extraction Module for CognitiveLattice
 Handles PDF page-based extraction and visual content analysis
 """
 
