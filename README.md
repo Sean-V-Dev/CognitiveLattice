@@ -12,6 +12,7 @@ Rather than being just another LLM wrapper, CognitiveLattice implements a **cogn
 ---
 ## 🎬 Live Demo
 Watch the CognitiveLattice agent in action. This is not a scripted demo. It's a live demonstration of the Cognitive Lattice enabling a series of stateless API calls to be chained into a single, successful, multi-step task. The agent's ability to select the right tool and recall its own actions is entirely dynamic.
+![CognitiveLattice1](https://github.com/user-attachments/assets/3b2bf69c-04d4-4714-91a6-b593bb1a1334)
 
 ---
 ## 🌟 Key Features
