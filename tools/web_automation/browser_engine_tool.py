@@ -526,7 +526,7 @@ class BrowserEngineTool:
                 'message': f'Failed to click element {selector}: {str(e)}'
             }
     
-    async def type_text(self, selector: str, text: str, clear_first: bool = True) -> Dict[str, Any]:
+    async def type_text(self, selector: str, text: str, clear_first: bool = True, press_enter: bool = False) -> Dict[str, Any]:
         """
         Type text into an input element.
         
@@ -534,6 +534,7 @@ class BrowserEngineTool:
             selector: CSS selector for the input element
             text: Text to type
             clear_first: Whether to clear existing text first
+            press_enter: Whether to press Enter after typing (useful for dismissing autocomplete dropdowns)
         
         Returns:
             Dict with typing status
@@ -554,11 +555,17 @@ class BrowserEngineTool:
             else:
                 await self.page.type(selector, text)
             
+            # Press Enter if requested (helps dismiss autocomplete dropdowns)
+            if press_enter:
+                await self.page.press(selector, 'Enter')
+                print(f"🔑 Pressed Enter after typing to dismiss autocomplete dropdown")
+            
             return {
                 'status': 'success',
                 'selector': selector,
                 'text': text,
-                'message': f'Successfully typed text into {selector}'
+                'press_enter': press_enter,
+                'message': f'Successfully typed text into {selector}' + (' and pressed Enter' if press_enter else '')
             }
             
         except Exception as e:

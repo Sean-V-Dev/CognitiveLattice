@@ -21,7 +21,7 @@ INTERACTIVE_MAX_ITEMS = int(os.getenv("WEB_AGENT_INTERACTIVE_MAX_ITEMS", "100"))
 INTERACTIVE_INCLUDE_TEXT_MAX = int(os.getenv("WEB_AGENT_INTERACTIVE_INCLUDE_TEXT_MAX", "80"))
 
 KEYWORD_BOOST = [
-    "order", "menu", "start", "begin", "find", "location", "pickup", "delivery",
+    "order", "buy", "shop", "start", "begin", "find", "location", "search", "submit",
     "accept", "agree", "continue", "next", "add", "cart", "checkout", "zip", "address",
 ]
 
@@ -122,7 +122,7 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
         """Determine if a div/span is likely clickable based on attributes and content"""
         # Priority 1: Location/store containers with identifying attributes
         location_attrs = [
-            "data-qa-restaurant-id",  # Chipotle
+            "data-qa-restaurant-id",  # Restaurant chains
             "data-store-id",          # Common pattern
             "data-location-id",       # Common pattern  
             "data-shop-id",           # Common pattern
@@ -147,14 +147,15 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
         
         # Strong indicators this is a navigation/location element
         navigation_keywords = [
-            "find", "locate", "location", "store", "chipotle", "order", 
+            "find", "locate", "location", "store", "shop", "order", 
             "menu", "navigation", "nav", "click", "button", "link"
         ]
         
-        # Special boost for obvious location elements like "find a chipotle"
+        # Special boost for obvious location finder elements
         location_phrases = [
-            "find a chipotle", "find chipotle", "store locator", 
-            "find location", "enter location", "location search"
+            "find location", "find store", "store locator", 
+            "location finder", "enter location", "location search",
+            "find a store", "store finder", "find locations"
         ]
         
         for phrase in location_phrases:
@@ -190,10 +191,14 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
         if roles in INTERACTIVE_ROLES: s += 0.5
 
         # HUGE boost for location finder elements
-        location_finder_phrases = ["find a chipotle", "find chipotle", "store locator"]
+        location_finder_phrases = ["find location", "find store", "store locator", "find a store", "find locations"]
         for phrase in location_finder_phrases:
             if phrase in t or phrase in classes:
                 s += 3.0  # MASSIVE boost for location finder
+                
+        # Extra boost for generic location finder patterns
+        if ("find" in t and ("store" in t or "location" in t or "restaurant" in t or "shop" in t)):
+            s += 2.5  # High boost for "find [location type]" patterns
                 
         # Enhanced keyword boosts for web automation
         blk = " ".join([t, ph, aria, nm, href, classes])
@@ -201,7 +206,7 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
             if kw in blk: s += 0.8  # Increased from 0.6
         
         # Extra boost for primary action indicators
-        primary_actions = ["order now", "start order", "get started", "begin", "order pickup", "order delivery"]
+        primary_actions = ["order now", "buy now", "get started", "begin", "add to cart", "checkout", "start", "shop now"]
         for action in primary_actions:
             if action in blk: s += 1.2
         
@@ -273,7 +278,7 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
     
     # Special handling for location/store containers first (they need special regex due to nesting)
     location_attr_patterns = [
-        "data-qa-restaurant-id",  # Chipotle
+        "data-qa-restaurant-id",  # Restaurant chains
         "data-store-id",          # Common pattern
         "data-location-id",       # Common pattern  
         "data-shop-id",           # Common pattern
@@ -370,7 +375,7 @@ def build_reasoning_prompt(goal: str, context: Dict[str, Any]) -> str:
             
             # PRIORITY 1: Boost location/store container elements (most clickable)
             location_attrs = [
-                "data-qa-restaurant-id",  # Chipotle
+                "data-qa-restaurant-id",  # Restaurant chains
                 "data-store-id",          # Common pattern
                 "data-location-id",       # Common pattern  
                 "data-shop-id",           # Common pattern
@@ -427,7 +432,7 @@ def build_reasoning_prompt(goal: str, context: Dict[str, Any]) -> str:
                 
                 # PRIORITY 1: Boost location/store container elements (most clickable)
                 location_attrs = [
-                    "data-qa-restaurant-id",  # Chipotle
+                    "data-qa-restaurant-id",  # Restaurant chains
                     "data-store-id",          # Common pattern
                     "data-location-id",       # Common pattern  
                     "data-shop-id",           # Common pattern
@@ -746,7 +751,7 @@ ALL INTERACTIVE ELEMENTS (complete list - choose the most appropriate):
 {dom_change_info}
 
 ELEMENT SELECTION GUIDANCE:
-- For food ordering: Look for buttons like "Order Now", "Order Pickup", "Order Delivery"
+- For e-commerce/ordering: Look for buttons like "Order Now", "Buy Now", "Add to Cart", "Checkout"
 - For location entry: Prioritize INPUT fields with placeholders like "ZIP", "Address", "Location" over buttons
 - For modal dismissal: Look for "Accept", "Close", "Continue", "OK" buttons  
 - Ignore elements that don't relate to your goal (ads, footers, unrelated navigation)
@@ -800,7 +805,7 @@ def llm_reason(goal: str, obs: Dict[str, Any], external_client=None) -> Dict[str
             return {
                 "reasoning": "Using internal LLM fallback for web automation",
                 "confidence": 0.7,
-                "actions": [{"type": "click", "selector": ".order-pickup", "expected_result_hint": "internal_llm_fallback"}]
+                "actions": [{"type": "click", "selector": ".btn-primary", "expected_result_hint": "internal_llm_fallback"}]
             }
         
         print(f"🔍 Raw LLM response: {str(raw)[:200]}...")
@@ -936,7 +941,7 @@ def llm_verify(goal: str, actions: List[Dict[str,Any]], dom: str, external_clien
             print(f"🔧 Internal LLM returned dict, creating verification response...")
             # Analyze the goal and DOM to make a simple verification
             achieved = (
-                "chipotle" in dom.lower() and "navigate" in goal.lower()
+                "success" in dom.lower() or "complete" in dom.lower() and any(keyword in goal.lower() for keyword in ["navigate", "open", "load"])
             ) or (
                 len(actions) > 0 and actions[0].get("exec_status") == "ok"
             )

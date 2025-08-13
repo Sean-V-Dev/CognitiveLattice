@@ -240,13 +240,33 @@ class CognitiveLatticeWebAgent:
 
         return obs
 
+    def _clean_selector(self, selector: str) -> str:
+        """Clean up selector by removing invalid format like 'div[role='button'] | Text: 'Button Text''"""
+        if not selector:
+            return selector
+        
+        # Remove the descriptive text part (everything after |)
+        if " | " in selector:
+            selector = selector.split(" | ")[0].strip()
+        
+        # Remove any Text: parts that might remain
+        if " Text: " in selector:
+            selector = selector.split(" Text: ")[0].strip()
+            
+        return selector
+
     async def execute_actions(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Enhanced action execution with DOM change detection"""
         results = []
         for act in actions:
             a_type = act.get("type")
-            sel = act.get("selector")
+            raw_sel = act.get("selector", "")
+            sel = self._clean_selector(raw_sel)
             url = act.get("url")
+            
+            # Debug logging for selector cleaning
+            if raw_sel != sel:
+                print(f"🔧 Cleaned selector: '{raw_sel}' → '{sel}'")
             
             # CAPTURE DOM BEFORE ACTION
             dom_before = await self.browser.page.content()
@@ -263,12 +283,62 @@ class CognitiveLatticeWebAgent:
                     await asyncio.sleep(0.5)
                 elif a_type == "click":
                     # Robust click: ensure visible, scroll into view, then click. Retry with fallbacks if no change.
-                    locator = self.browser.page.locator(sel)
                     try:
+                        locator = self.browser.page.locator(sel)
                         await locator.scroll_into_view_if_needed()
-                    except Exception:
-                        pass
-                    await locator.click(timeout=5000)
+                        await locator.click(timeout=5000)
+                    except Exception as click_error:
+                        # If we get a strict mode violation, try to find a more specific selector
+                        if "strict mode violation" in str(click_error):
+                            # Extract suggestions from Playwright's error message for more specific selectors
+                            error_msg = str(click_error)
+                            suggested_selectors = []
+                            
+                            # Parse Playwright's suggestions from error message
+                            if "get_by_role(" in error_msg:
+                                import re
+                                role_matches = re.findall(r'get_by_role\("([^"]+)",\s*name="([^"]+)"\)', error_msg)
+                                for role, name in role_matches[:3]:  # Try up to 3 suggestions
+                                    suggested_selectors.append((f"get_by_role('{role}', name='{name}')", role, name))
+                            
+                            if suggested_selectors:
+                                print(f"🔧 Strict mode violation detected, trying {len(suggested_selectors)} suggested selectors...")
+                                for i, (selector_desc, role, name) in enumerate(suggested_selectors):
+                                    try:
+                                        print(f"🔄 Attempt {i+1}: Trying {selector_desc}")
+                                        specific_locator = self.browser.page.get_by_role(role, name=name)
+                                        await specific_locator.scroll_into_view_if_needed()
+                                        await specific_locator.click(timeout=5000)
+                                        print(f"✅ Successfully clicked using suggested selector: {selector_desc}")
+                                        break  # Success, exit the retry loop
+                                    except Exception as specific_error:
+                                        print(f"❌ Suggested selector {i+1} failed: {specific_error}")
+                                        if i == len(suggested_selectors) - 1:  # Last attempt
+                                            raise click_error  # Re-raise original error
+                                        continue
+                            else:
+                                # Fallback for common patterns without specific suggestions
+                                print(f"🔧 Strict mode violation detected, trying generic fallbacks...")
+                                fallback_attempts = [
+                                    ("first matching element", lambda: self.browser.page.locator(sel).first),
+                                    ("last matching element", lambda: self.browser.page.locator(sel).last),
+                                ]
+                                
+                                for attempt_name, locator_func in fallback_attempts:
+                                    try:
+                                        print(f"🔄 Trying {attempt_name}...")
+                                        fallback_locator = locator_func()
+                                        await fallback_locator.scroll_into_view_if_needed()
+                                        await fallback_locator.click(timeout=5000)
+                                        print(f"✅ Successfully clicked using {attempt_name}")
+                                        break
+                                    except Exception as fallback_error:
+                                        print(f"❌ {attempt_name} also failed: {fallback_error}")
+                                        continue
+                                else:
+                                    raise click_error  # Re-raise original error if all fallbacks fail
+                        else:
+                            raise click_error  # Re-raise original error
                 elif a_type == "press_key":
                     key = act.get("key", "Enter")
                     focus_selector = sel
@@ -328,12 +398,23 @@ class CognitiveLatticeWebAgent:
                     pass
                 status = "ok"
             except Exception as e:
+                print(f"❌ Action {a_type} failed: {e}")
                 status = f"error:{e}"
             
             # CAPTURE DOM AFTER ACTION & ANALYZE CHANGES
-            await asyncio.sleep(3.5)  # Increased wait for search results and dynamic content
-            dom_after = await self.browser.page.content()
-            dom_hash_after = hash_dom(compress_dom(dom_after))
+            try:
+                await asyncio.sleep(3.5)  # Increased wait for search results and dynamic content
+                dom_after = await self.browser.page.content()
+                dom_hash_after = hash_dom(compress_dom(dom_after))
+            except Exception as e:
+                print(f"❌ Failed to capture DOM after action - browser may be closed: {e}")
+                results.append({
+                    "action": act,
+                    "status": f"browser_error:{e}",
+                    "dom_changed": False,
+                    "change_analysis": {"error": "Browser closed or inaccessible"}
+                })
+                break  # Exit the action loop if browser is gone
             
             # DOM DIFF ANALYSIS - Surgical precision change detection
             change_analysis = analyze_dom_changes(dom_before, dom_after)
@@ -348,6 +429,14 @@ class CognitiveLatticeWebAgent:
                                url_before != url_after)
             
             dom_changed = dom_hash_before != dom_hash_after
+            
+            # Debug logging for click analysis
+            if a_type == "click":
+                print(f"🔍 Click Debug - URL before: {url_before}")
+                print(f"🔍 Click Debug - URL after: {url_after}")
+                print(f"🔍 Click Debug - url_fragment_only: {url_fragment_only}")
+                print(f"🔍 Click Debug - dom_changed: {dom_changed}")
+                print(f"🔍 Click Debug - status: {status}")
             
             # Log DOM diff analysis for debugging
             if change_analysis['has_changes']:
@@ -366,10 +455,10 @@ class CognitiveLatticeWebAgent:
                 "analysis_timestamp": time.time()
             })
 
-            # For click actions, only retry if URL fragment changed WITHOUT DOM change (intercepted click)
-            # If both URL fragment AND DOM changed, that's likely a valid anchor link working correctly
-            if a_type == "click" and status == "ok" and url_fragment_only and not dom_changed:
-                print(f"🔄 Click may have been intercepted (URL fragment change: {url_fragment_only}, DOM change: {dom_changed})")
+            # For click actions, retry if no DOM changes occurred (regardless of URL behavior)
+            # This catches both intercepted clicks and clicks that should trigger changes but don't
+            if a_type == "click" and status == "ok" and not dom_changed:
+                print(f"🔄 Click produced no DOM changes - attempting retries (URL fragment change: {url_fragment_only}, DOM change: {dom_changed})")
                 
                 # Retry with stronger fallbacks - these are now async functions
                 async def force_click_retry():
@@ -546,6 +635,13 @@ class CognitiveLatticeWebAgent:
             is_location_field = any(indicator in all_text for indicator in location_indicators)
             location_context = any(indicator in context_text for indicator in location_indicators)
             
+            # ZIP code specific logic - ZIP codes should submit immediately to trigger search
+            is_zip_code = (
+                len(text) == 5 and text.isdigit() or  # 5-digit ZIP code
+                any(indicator in all_text for indicator in ["zip", "postal"]) or
+                ("zip" in context_text and text.isdigit())
+            )
+            
             # Form field counting (if in a form with multiple inputs)
             form_inputs_count = 1  # default assume single
             if form_elem:
@@ -554,8 +650,12 @@ class CognitiveLatticeWebAgent:
                 """)
             
             # Decision logic
-            if is_location_field or location_context:
-                # Location fields should select from suggestions if available
+            if is_zip_code:
+                # ZIP codes should submit immediately to dismiss autocomplete and trigger search
+                print(f"🔑 Detected ZIP code '{text}' - will press Enter to trigger search")
+                return "submit"
+            elif is_location_field or location_context:
+                # Other location fields should select from suggestions if available
                 return "select_suggestion"
             elif is_search_field and form_inputs_count <= 2:  # Search box or simple search form
                 # Single search fields should submit

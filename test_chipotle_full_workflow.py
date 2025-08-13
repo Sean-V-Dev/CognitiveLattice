@@ -39,7 +39,7 @@ async def test_chipotle_location_workflow():
         print("-" * 40)
         
         # Create execution plan and run it using the enhanced agent
-        high_level_goal = "Navigate to chipotle.com, dismiss any popups/cookie banners, find a way to enter location ZIP code 45305, and select the nearest Chipotle location"
+        high_level_goal = "Navigate to chipotle.com, find a way to enter location ZIP code 45305, and select the nearest Chipotle location"
         target_url = "https://www.chipotle.com"
         
         print(f"🧠 Creating execution plan...")
