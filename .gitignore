@@ -241,3 +241,6 @@ encoded_chunks/
 pdf_pages/
 
 *.pdf
+
+# Browser profiles
+browser_profiles/

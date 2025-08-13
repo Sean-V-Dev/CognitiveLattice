@@ -584,6 +584,147 @@ Please respond with information relevant to Step {current_step_index + 1} only."
                         print("⚠️ External API not available for task planning.")
                         session_manager.lattice.save()
 
+            elif intent == "web_automation":
+                # Web automation intent: use the cognitive lattice web agent
+                print(f"🌐 [Web Automation]: Routing to cognitive lattice web agent...")
+                
+                # Extract target URL from user query
+                target_url = None
+                
+                # Look for common URL patterns in the user query
+                import re
+                url_patterns = [
+                    r'https?://[^\s]+',  # Full URLs
+                    r'www\.[^\s]+',      # www.example.com
+                    r'([a-zA-Z0-9-]+\.(?:com|org|net|gov|edu|io|co)(?:\.[a-zA-Z]{2})?)',  # domain.com patterns
+                ]
+                
+                for pattern in url_patterns:
+                    matches = re.findall(pattern, user_query.lower())
+                    if matches:
+                        target_url = matches[0]
+                        # Ensure URL has proper protocol
+                        if not target_url.startswith(('http://', 'https://')):
+                            if target_url.startswith('www.'):
+                                target_url = f"https://{target_url}"
+                            else:
+                                target_url = f"https://www.{target_url}"
+                        break
+                
+                # If no URL found, try to infer from common website names
+                if not target_url:
+                    website_mappings = {
+                        'chipotle': 'https://www.chipotle.com',
+                        'google': 'https://www.google.com',
+                        'amazon': 'https://www.amazon.com',
+                        'facebook': 'https://www.facebook.com',
+                        'youtube': 'https://www.youtube.com',
+                        'twitter': 'https://www.twitter.com',
+                        'instagram': 'https://www.instagram.com',
+                        'linkedin': 'https://www.linkedin.com'
+                    }
+                    
+                    for site_name, site_url in website_mappings.items():
+                        if site_name in user_query.lower():
+                            target_url = site_url
+                            break
+                
+                # Default fallback if still no URL found
+                if not target_url:
+                    print(f"❌ Could not extract website URL from request: '{user_query}'")
+                    print(f"💡 Please specify a website (e.g., 'open chipotle.com' or 'navigate to https://example.com')")
+                    session_manager.lattice.add_event({
+                        "type": "web_automation_error",
+                        "timestamp": datetime.now().isoformat(),
+                        "query": user_query,
+                        "error": "Could not extract target URL from request",
+                        "status": "error"
+                    })
+                    session_manager.lattice.save()
+                    continue
+                
+                # Import the web automation tools
+                try:
+                    from tools.web_automation.cognitive_lattice_web_agent import CognitiveLatticeWebAgent
+                    
+                    # Create the cognitive lattice web agent
+                    web_agent = CognitiveLatticeWebAgent(
+                        external_client=external_api,
+                        cognitive_lattice=session_manager.lattice
+                    )
+                    
+                    # Log the start of web automation
+                    session_manager.lattice.add_event({
+                        "type": "web_automation_started",
+                        "timestamp": datetime.now().isoformat(),
+                        "query": user_query,
+                        "status": "started"
+                    })
+                    session_manager.lattice.save()
+                    
+                    # Execute the web automation request with lattice integration
+                    print(f"🎯 Executing web automation with lattice integration: {user_query}")
+                    print(f"🌐 Target URL: {target_url}")
+                    import asyncio
+                    
+                    # Create execution plan first
+                    plan_result = asyncio.run(web_agent.create_execution_plan(user_query, target_url))
+                    
+                    # Execute the plan with monitoring
+                    result = asyncio.run(web_agent.execute_plan_with_monitoring(plan_result))
+                    
+                    # Clean up browser resources
+                    try:
+                        if hasattr(web_agent, 'browser'):
+                            asyncio.run(web_agent.close_browser())
+                    except Exception:
+                        pass  # Ignore cleanup errors
+                    
+                    # Log the result
+                    session_manager.lattice.add_event({
+                        "type": "web_automation_completed",
+                        "timestamp": datetime.now().isoformat(),
+                        "query": user_query,
+                        "result": result,
+                        "status": "completed" if result.get("success") else "error"
+                    })
+                    
+                    # Print result summary
+                    if result.get("success"):
+                        print(f"✅ Web automation completed: {result.get('message', 'Task executed successfully')}")
+                        if result.get("final_url"):
+                            print(f"🌐 Final URL: {result['final_url']}")
+                        if result.get("screenshot_path"):
+                            print(f"📸 Final screenshot saved: {result['screenshot_path']}")
+                    else:
+                        print(f"❌ Web automation failed: {result.get('error', 'Unknown error')}")
+                    
+                    # Save the lattice
+                    session_manager.lattice.save()
+                    
+                except ImportError as e:
+                    print(f"❌ Web automation tools not available: {e}")
+                    session_manager.lattice.add_event({
+                        "type": "web_automation_error",
+                        "timestamp": datetime.now().isoformat(),
+                        "query": user_query,
+                        "error": f"Web automation tools not available: {e}",
+                        "status": "error"
+                    })
+                    session_manager.lattice.save()
+                except Exception as e:
+                    print(f"❌ Web automation failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    session_manager.lattice.add_event({
+                        "type": "web_automation_error",
+                        "timestamp": datetime.now().isoformat(),
+                        "query": user_query,
+                        "error": str(e),
+                        "status": "error"
+                    })
+                    session_manager.lattice.save()
+
             else:
                 print(f"❓ [System]: Unrecognized intent '{intent}'. Please try rephrasing your request.")
                 session_manager.lattice.add_event({

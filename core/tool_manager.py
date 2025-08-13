@@ -562,10 +562,10 @@ Do not explain your reasoning, just provide the tool name or "none"."""
             # If no specific cities found, but step is about flights, create generic parameters
             if 'flight' in step_description.lower() or 'fly' in llm_response.lower():
                 return {
-                    'origin': 'cincinnati',  # Default based on context
+                    'origin': 'user_location_needed',  # Default based on context
                     'destination': 'destination_from_context',  # Will be handled by tool
-                    'departure_date': self._extract_date(combined_text, "departure") or "2025-07-29",
-                    'return_date': self._extract_date(combined_text, "return") or "2025-08-01"
+                    'departure_date': self._extract_date(combined_text, "departure") or "DATE_NEEDED",
+                    'return_date': self._extract_date(combined_text, "return") or "DATE_NEEDED"
                 }
         
         elif tool_name == 'hotel_planner':

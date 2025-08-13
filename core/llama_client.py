@@ -159,6 +159,7 @@ Intent Types:
 - "analysis": Request to analyze, summarize, or extract information from a document
 - "broad": Request for overall summary or analysis of entire document
 - "task": Complex structured task requiring multiple steps (e.g., "Plan a trip", "Create a business plan")
+- "web_automation": Request to navigate websites, interact with web pages, or perform web automation (e.g., "Navigate to chipotle.com", "Order food online", "Click the login button")
 
 Action Types:
 - "chat": Conversational response
@@ -167,6 +168,7 @@ Action Types:
 - "summarize": Summarize document
 - "extract": Extract specific information
 - "plan": Create a multi-step plan
+- "web_navigate": Navigate and interact with websites
 
 User Request: "{user_query}"
 
@@ -183,7 +185,7 @@ JSON Response:[/INST]"""
         intent_data = json.loads(response_text)
         if isinstance(intent_data, dict) and "intent" in intent_data and "action" in intent_data:
             # Basic validation
-            valid_intents = ["chat", "query", "analysis", "broad", "task"]
+            valid_intents = ["chat", "query", "analysis", "broad", "task", "web_automation"]
             if intent_data.get("intent") not in valid_intents:
                 intent_data["intent"] = "query" # Default to simple query
             return intent_data
@@ -194,6 +196,8 @@ JSON Response:[/INST]"""
                 return {"intent": "broad", "action": "summarize"}
             elif "plan" in user_query.lower() or "help me" in user_query.lower():
                 return {"intent": "task", "action": "plan"}
+            elif any(word in user_query.lower() for word in ["navigate", "website", "click", "chipotle", "order", "login", "web", "browser"]):
+                return {"intent": "web_automation", "action": "web_navigate"}
             elif any(word in user_query.lower() for word in ["hello", "hi", "how are you", "thanks", "thank you"]):
                 return {"intent": "chat", "action": "chat"}
             return {"intent": "query", "action": "query"}
@@ -204,6 +208,8 @@ JSON Response:[/INST]"""
             return {"intent": "broad", "action": "summarize"}
         elif "plan" in user_query.lower() or "help me" in user_query.lower():
             return {"intent": "task", "action": "plan"}
+        elif any(word in user_query.lower() for word in ["navigate", "website", "click", "chipotle", "order", "login", "web", "browser"]):
+            return {"intent": "web_automation", "action": "web_navigate"}
         elif any(word in user_query.lower() for word in ["hello", "hi", "how are you", "thanks", "thank you"]):
             return {"intent": "chat", "action": "chat"}
         return {"intent": "query", "action": "query"}
