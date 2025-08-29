@@ -1,8 +1,8 @@
-# 🧠 TokenSight: Token Discipline for Intelligent Inference
+# 🧠 CognitiveLattice: Token Discipline for Intelligent Inference
 
-**TokenSight** is a modular framework that tackles one of the root causes of LLM drift, hallucination, and inefficiency: uncontrolled token usage.
+**CognitiveLattice** is a modular framework that tackles one of the root causes of LLM drift, hallucination, and inefficiency: uncontrolled token usage.
 
-Rather than expanding context windows or stacking memory blobs, TokenSight implements surgical input management — selectively compressing, encrypting, and routing information to ensure only the *right* data reaches a large model, at the *right* time.
+Rather than expanding context windows or stacking memory blobs, CognitiveLattice implements surgical input management — selectively compressing, encrypting, and routing information to ensure only the *right* data reaches a large model, at the *right* time.
 
 Its mission is simple:  
 > 🔍 *Watch every token. Limit waste. Maximize meaning.*
@@ -16,7 +16,7 @@ Most LLM architectures suffer from token sprawl:
 - Unfiltered task data bleeding into unrelated inference
 - Sensitive content exposed before it’s needed
 
-**TokenSight prevents this** by introducing a buffer layer — a secure staging ground where input is cleaned, chunked, and *summarized by a small local LLM* before entering the attention-heavy realm of a larger model.
+**CognitiveLattice prevents this** by introducing a buffer layer — a secure staging ground where input is cleaned, chunked, and *summarized by a small local LLM* before entering the attention-heavy realm of a larger model.
 
 This results in:
 - ✅ Reduced hallucination
@@ -49,12 +49,12 @@ Planned additions:
 
 ## 🔐 Core Design Philosophy
 
-TokenSight treats input like a **hazmat material** — not because data is dangerous, but because careless exposure is.
+CognitiveLattice treats input like a **hazmat material** — not because data is dangerous, but because careless exposure is.
 
 - 🔥 **No raw input enters the big LLM unexamined**
 - 🧠 **Small LLM acts as a security guard, deciding what gets passed on**
 - 🖼️ **Encrypted image transmission keeps input cold until explicitly decoded**
-    ⚠️ TokenSight currently uses a basic XOR-based encryption for proof of concept. While it successfully obscures input and verifies decode integrity, it is not suitable for secure production use. Future versions will support stronger cryptographic standards (e.g., AES, Fernet), environment-based key handling, and compliance-aware input processing.
+    ⚠️ CognitiveLattice currently uses a basic XOR-based encryption for proof of concept. While it successfully obscures input and verifies decode integrity, it is not suitable for secure production use. Future versions will support stronger cryptographic standards (e.g., AES, Fernet), environment-based key handling, and compliance-aware input processing.
 
 - 🧮 **Chunking optimizes token footprint — no bloated context windows**
 - 🧬 **Redaction rules allow for selective privacy: redact, truncate, or reject**
@@ -87,7 +87,7 @@ Memory log and agent behavior matched expectations for scalable multi-chunk inpu
 
 ## 👋 About the Builder
 
-Hi, I’m Sean — a systems architect with a passion for frictionless design. TokenSight wasn’t born to compete with LangChain or replicate AutoGPT — it was built to solve one quiet, persistent problem: why do smart models burn tokens like they’re free?
+Hi, I’m Sean — a systems architect with a passion for frictionless design. CognitiveLattice wasn’t born to compete with LangChain or replicate AutoGPT — it was built to solve one quiet, persistent problem: why do smart models burn tokens like they’re free?
 
 As a parent, student, and full-time engineer, I believe architecture is intelligence. I’m building frameworks that respect context, compression, and collaboration.
 

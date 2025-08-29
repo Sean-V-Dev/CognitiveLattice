@@ -1,5 +1,5 @@
 """
-Document Processing Tool for TokenSight Framework
+Document Processing Tool for CognitiveLattice Framework
 Handles document analysis, chunking, and RAG system initialization as a tool
 """
 
@@ -10,7 +10,7 @@ from datetime import datetime
 
 def document_processor(source_file: str, processing_mode: str = "full", enable_external_api: bool = True, session_manager=None) -> Dict[str, Any]:
     """
-    A tool that processes documents through the TokenSight pipeline.
+    A tool that processes documents through the CognitiveLattice pipeline.
     
     Args:
         source_file: Path to the document to process
@@ -170,7 +170,7 @@ def document_query(query: str, rag_system=None, max_chunks: int = 5, session_man
     
     Args:
         query: The query to search for
-        rag_system: The TokenSightAdvancedRAG system (from previous document_processor results)
+        rag_system: The CognitiveLatticeAdvancedRAG system (from previous document_processor results)
         max_chunks: Maximum number of chunks to return
         session_manager: Session manager for accessing stored RAG systems
     

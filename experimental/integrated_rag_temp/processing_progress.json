@@ -1,0 +1,9 @@
+{
+  "total_files_processed": 0,
+  "total_records_processed": 200000,
+  "total_chunks_created": 200000,
+  "processing_start_time": "2025-07-27T15:05:42.326469",
+  "current_file": "drug-label-0001-of-0013.json",
+  "errors": [],
+  "last_updated": "2025-07-27T15:05:44.918750"
+}

@@ -4,12 +4,14 @@ import json
 import traceback
 from typing import List, Dict, Any
 from datetime import datetime
-from external_api_client import ExternalAPIClient
+from core.external_api_client import ExternalAPIClient
 from core.tool_manager import ToolManager
 from core.cognitive_lattice import CognitiveLattice, SessionManager
-from llama_client import diagnose_user_intent
+from core.llama_client import diagnose_user_intent
+from tools.web_automation.cognitive_lattice_web_coordinator import execute_cognitive_web_task
+import asyncio
 
-def main():
+async def main():
     # === Initialize session manager and cognitive lattice === #
     session_manager = SessionManager()
     print(f"🧠 Cognitive Lattice initialized for session: {session_manager.lattice.session_id}")
@@ -18,7 +20,7 @@ def main():
     tool_manager = ToolManager()
     print(f"🔧 Tool Manager initialized")
 
-    print("📋 TokenSight Interactive Agent")
+    print("📋 CognitiveLattice Interactive Agent")
     print("=" * 50)
     
     # Initialize external API client
@@ -519,6 +521,31 @@ Please respond with information relevant to Step {current_step_index + 1} only."
                         print("⚠️ External API not available for task planning.")
                         session_manager.lattice.save()
 
+            elif intent == "web_automation":
+                print(f"🤖 Autonomous web automation: {user_query}")
+                
+                # Extract URL from user query instead of hardcoding
+                url_match = re.search(r'(https?://[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})', user_query.lower())
+                if url_match:
+                    extracted_url = url_match.group(1)
+                    if not extracted_url.startswith('http'):
+                        extracted_url = f"https://{extracted_url}"
+                else:
+                    extracted_url = "https://google.com"  # Default fallback
+                
+                print(f"🌐 Extracted URL: {extracted_url}")
+                
+                # This await will now work since main() is async
+                result = await execute_cognitive_web_task(
+                    goal=user_query,
+                    url=extracted_url,
+                    external_client=external_api,
+                    cognitive_lattice=session_manager.lattice
+                )
+                
+                print(f"✅ Web automation result: {result}")
+                session_manager.lattice.save()
+
             else:
                 print(f"❓ [System]: Unrecognized intent '{intent}'. Please try rephrasing your request.")
                 session_manager.lattice.add_event({
@@ -540,7 +567,7 @@ Please respond with information relevant to Step {current_step_index + 1} only."
 # Only run if this file is executed directly
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(main())  # Wrap with asyncio.run()
     except KeyboardInterrupt:
         print("\n⚠️ Process interrupted by user")
     except Exception as e:

@@ -1,0 +1,20 @@
+{
+  "www.chipotle.com": {
+    "element_fingerprints": [
+      {
+        "semantic_label": "order_pickup_button",
+        "text_patterns": [
+          "Order Pickup"
+        ],
+        "selectors": [
+          ".order-pickup",
+          "[data-testid=\"pickup-button\"]"
+        ],
+        "confidence": 0.9,
+        "timestamp": "2025-08-09T17:13:14.925991",
+        "goal_context": "Start ordering pickup"
+      }
+    ],
+    "successful_patterns": []
+  }
+}

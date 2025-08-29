@@ -226,3 +226,11 @@ __pycache__
 
 
 drug-label-0001-of-0013.json
+# Browser profiles and cache data
+browser_profiles/
+debug_prompts/
+
+# Browser data - CRITICAL: Never commit personal browser information
+browser_profile/
+browser_profiles/
+**/browser_profile*/

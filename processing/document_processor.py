@@ -13,10 +13,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.dictionary_manager import expand_dictionary, clean_input
 from encoder.text_to_image import encode_text_to_image
 from decoder.image_to_text import decode_image_to_text
-from text_processor import extract_paragraphs, chunk_paragraphs
-from file_handler import process_file
-from llama_client import diagnose_content_type
-from page_extractor import integrate_page_based_extraction, PAGE_EXTRACTION_AVAILABLE
+from processing.text_processor import extract_paragraphs, chunk_paragraphs
+from processing.file_handler import process_file
+from core.llama_client import diagnose_content_type
+from processing.page_extractor import integrate_page_based_extraction, PAGE_EXTRACTION_AVAILABLE
 
 def run_document_pipeline(source_input: str, encryption_key: tuple) -> Dict[str, Any]:
     """
@@ -143,9 +143,9 @@ def initialize_rag_system(chunk_storage: List[Dict[str, Any]],
     print("🧠 Initializing RAG system...")
     
     try:
-        from tokensight_advanced_rag import TokenSightAdvancedRAG
+        from CognitiveLattice_advanced_rag import CognitiveLatticeAdvancedRAG
         
-        advanced_rag = TokenSightAdvancedRAG(enable_external_api=enable_external_api)
+        advanced_rag = CognitiveLatticeAdvancedRAG(enable_external_api=enable_external_api)
         
         doc_info = {
             "source": source_input,

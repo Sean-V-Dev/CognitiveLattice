@@ -1,4 +1,4 @@
-# TokenSight Framework MVP
+# CognitiveLattice Framework MVP
 
 ## 🚀 Quick Start for MVP Release
 
@@ -26,19 +26,19 @@ mv *.json archive/ 2>/dev/null || true  # Keep config/*.json
 #### 2. **Move Files to New Structure** (30 minutes)
 ```bash
 # Core framework files
-mv external_api_client.py tokensight/core/
-mv memory_manager.py tokensight/core/
-mv file_handler.py tokensight/processing/
-mv text_processor.py tokensight/processing/
-mv page_extractor.py tokensight/processing/
-mv llama_client.py tokensight/handlers/
-mv tool_manager.py tokensight/tools/
+mv external_api_client.py CognitiveLattice/core/
+mv memory_manager.py CognitiveLattice/core/
+mv file_handler.py CognitiveLattice/processing/
+mv text_processor.py CognitiveLattice/processing/
+mv page_extractor.py CognitiveLattice/processing/
+mv llama_client.py CognitiveLattice/handlers/
+mv tool_manager.py CognitiveLattice/tools/
 
 # RAG systems
-mv tokensight_advanced_rag.py tokensight/rag/
-mv bidirectional_rag.py tokensight/rag/
-mv integrated_json_rag.py tokensight/rag/
-mv rag_engine.py tokensight/rag/
+mv CognitiveLattice_advanced_rag.py CognitiveLattice/rag/
+mv bidirectional_rag.py CognitiveLattice/rag/
+mv integrated_json_rag.py CognitiveLattice/rag/
+mv rag_engine.py CognitiveLattice/rag/
 
 # Applications
 mv fda_json_integration.py applications/medical/
@@ -52,25 +52,25 @@ mv demo_smart_router.py applications/demos/
 mv test_*.py tests/integration/
 
 # Utils
-mv cost_analysis.py tokensight/utils/
-mv check_*.py tokensight/utils/
-mv cleanup_analysis.py tokensight/utils/
+mv cost_analysis.py CognitiveLattice/utils/
+mv check_*.py CognitiveLattice/utils/
+mv cleanup_analysis.py CognitiveLattice/utils/
 ```
 
 #### 3. **Fix Import Statements** (30 minutes)
 Update imports in moved files to use new paths:
-- `from tokensight.core.external_api_client import ExternalAPIClient`
-- `from tokensight.processing.file_handler import process_file`
+- `from CognitiveLattice.core.external_api_client import ExternalAPIClient`
+- `from CognitiveLattice.processing.file_handler import process_file`
 - etc.
 
 #### 4. **Create Simple CLI** (30 minutes)
 ```python
-# tokensight/cli.py
+# CognitiveLattice/cli.py
 import argparse
 from .main import main
 
 def cli():
-    parser = argparse.ArgumentParser(description='TokenSight Framework')
+    parser = argparse.ArgumentParser(description='CognitiveLattice Framework')
     parser.add_argument('--document', '-d', help='Document to process')
     parser.add_argument('--interactive', '-i', action='store_true', help='Start interactive mode')
     args = parser.parse_args()
@@ -88,7 +88,7 @@ if __name__ == '__main__':
 
 #### 5. **Create Basic Documentation** (15 minutes)
 ```markdown
-# TokenSight Framework
+# CognitiveLattice Framework
 
 ## Installation
 ```bash
@@ -98,10 +98,10 @@ pip install -e .
 ## Quick Start
 ```bash
 # Interactive mode
-python -m tokensight
+python -m CognitiveLattice
 
 # Process specific document
-tokensight -d document.pdf
+CognitiveLattice -d document.pdf
 ```
 
 ## Features
