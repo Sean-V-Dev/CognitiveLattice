@@ -37,18 +37,35 @@ class BrowserController:
         fallback_used = False
 
         start = datetime.now()
+        executed_commands = 0  # Track actually executed commands
+        
         for i, cmd in enumerate(batch.commands):
             try:
                 if cmd.type == "navigate" and cmd.url:
                     await self._engine.navigate_to_url(cmd.url)
+                    executed_commands += 1
                 elif cmd.type == "click" and cmd.selector:
                     if used_selector is None:
                         used_selector = cmd.selector
-                    await self._engine.click_element(cmd.selector)
+                    # Execute click and check result
+                    result = await self._engine.click_element(cmd.selector)
+                    if result.get('status') == 'success':
+                        executed_commands += 1
+                    else:
+                        errors.append(f"Click failed on '{cmd.selector}': {result.get('message', 'Unknown error')}")
                 elif cmd.type == "type" and cmd.selector is not None:
-                    await self._engine.type_text(cmd.selector, cmd.text or "", clear_first=True, press_enter=False)
+                    # Execute type and check result
+                    result = await self._engine.type_text(cmd.selector, cmd.text or "", clear_first=True, press_enter=False)
+                    if result.get('status') == 'success':
+                        executed_commands += 1
+                    else:
+                        errors.append(f"Type failed on '{cmd.selector}': {result.get('message', 'Unknown error')}")
                 elif cmd.type == "press" and cmd.key:
-                    await self._engine.press_key(cmd.key, cmd.selector)
+                    result = await self._engine.press_key(cmd.key, cmd.selector)
+                    if result.get('status') == 'success':
+                        executed_commands += 1
+                    else:
+                        errors.append(f"Press key failed: {result.get('message', 'Unknown error')}")
                 else:
                     errors.append(f"Unsupported or malformed command: {cmd}")
             except Exception as e:
@@ -60,7 +77,27 @@ class BrowserController:
 
         after_html, _ = await self.get_current_dom()
         after_sig = _dp.page_signature(_dp.compress_dom(after_html))
-        success = (after_sig != before_sig) or (len(errors) == 0 and len(batch.commands) > 0)
+        
+        # Enhanced success logic: DOM must change OR commands must execute successfully
+        dom_changed = after_sig != before_sig
+        commands_executed_successfully = executed_commands > 0 and len(errors) == 0
+        
+        # Success requires either DOM change OR successful command execution
+        # But if DOM doesn't change and we tried to interact with elements, that's likely a failure
+        if dom_changed:
+            success = True  # DOM changed, something worked
+        elif executed_commands > 0 and len(errors) == 0:
+            # Commands executed without errors, but DOM didn't change
+            # This might be OK for some actions (like pressing keys), but suspicious for clicks/types
+            has_interaction_commands = any(cmd.type in ['click', 'type'] for cmd in batch.commands)
+            if has_interaction_commands:
+                # Interaction commands should usually change DOM
+                success = False
+                errors.append("Interaction commands executed but DOM unchanged - likely failed to find elements")
+            else:
+                success = True  # Non-interaction commands (navigate, press keys)
+        else:
+            success = False  # Either no commands executed or there were errors
 
         evidence = Evidence(
             success=success,

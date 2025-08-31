@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup, Comment
 import re
 from typing import Set, List
 
-def create_dom_skeleton(full_html: str, max_depth: int = 12) -> str:
+def create_dom_skeleton(full_html: str, max_depth: int = 20) -> str:
     """
     Takes a full HTML string and strips it down to a highly efficient "skeleton"
     by preserving only interactive elements and their direct structural parents.

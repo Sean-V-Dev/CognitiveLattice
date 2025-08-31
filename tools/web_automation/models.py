@@ -1,7 +1,21 @@
-# tools/web_automation/models.py
 from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional, Literal, Any
+
+# ---- Context passed into the planner for this turn/step ----
+@dataclass
+class ContextPacket:
+    """What the planner needs to decide the next action batch."""
+    session_id: str                  # your lattice session id
+    goal: str                        # high-level user goal ("order chipotle bowl")
+    url: str                         # canonical site URL
+    step: int                        # which step of the plan we're on (1,2,3…)
+    dom_snapshot: str                # raw/normalized DOM string (or a handle to it)
+    page_sig: str                    # page-level signature (for replay vs probe)
+    regions: List[Dict[str, Any]]    # region-level signatures/metadata
+    recipes: Dict[str, Any] = field(default_factory=dict)   # candidate cached recipe (if any)
+    memory: Dict[str, Any] = field(default_factory=dict)    # user prefs (e.g., protein=chicken)
+    policy: Dict[str, Any] = field(default_factory=dict)    # autonomy_steps, confirm_payment, etc.
 
 # ---- Tiny “enums” (type-safe strings) ----
 ActionType = Literal["navigate", "wait_for", "click", "type", "select", "press"]
@@ -61,7 +75,17 @@ class PageContext:
     raw_dom: str
     skeleton: str
     signature: str
+    # Fields with defaults must come after fields without defaults
     interactive: List[Element] = field(default_factory=list)
+    step_number: int = 1
+    total_steps: int = 1
+    overall_goal: str = ""
+    current_step: Optional[int] = None
+    total_steps_planned: Optional[int] = None
+    recent_events: List[Dict[str, Any]] = field(default_factory=list)
+    previous_dom_signature: Optional[str] = None
+    dom_signature: Optional[str] = None  # Alias for signature for consistency
+    lattice_state: Optional[Dict[str, Any]] = None
 
 # ---- What the executor/verifier reports back after running a batch ----
 @dataclass

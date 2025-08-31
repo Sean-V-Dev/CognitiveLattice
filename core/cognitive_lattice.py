@@ -314,7 +314,15 @@ class SessionManager:
         else:
             self.session_file = f"cognitive_lattice_interactive_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         
-        self.lattice = CognitiveLattice(session_id=os.path.splitext(os.path.basename(self.session_file))[0])
+        # Extract just the timestamp portion to avoid filename duplication
+        # From "cognitive_lattice_interactive_session_20250830_121848" extract "interactive_session_20250830_121848"
+        full_session_id = os.path.splitext(os.path.basename(self.session_file))[0]
+        if full_session_id.startswith("cognitive_lattice_"):
+            clean_session_id = full_session_id[len("cognitive_lattice_"):]
+        else:
+            clean_session_id = full_session_id
+        
+        self.lattice = CognitiveLattice(session_id=clean_session_id)
         self.session_data = {"queries": []}
         if os.path.exists(self.session_file):
             try:

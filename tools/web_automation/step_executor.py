@@ -87,62 +87,86 @@ class StepExecutor:
         # 1) Build prompt
         prompt = build_reasoning_prompt(goal, ctx, recent_actions or [])
         
-        # DEBUG: Save prompt to file for troubleshooting##############################
-        # TODO: REMOVE OR COMMENT OUT THIS DEBUG CODE LATER
+        # ############################################################################# 
+        # DEBUG: Save prompt to file for troubleshooting
+        # ############################################################################# 
+        # TODO: REMOVE OR COMMENT OUT ALL DEBUG CODE BELOW BEFORE PRODUCTION
+        # ############################################################################# 
         try:
             import os
             debug_dir = os.path.join(os.getcwd(), "debug_prompts")
             os.makedirs(debug_dir, exist_ok=True)
             
             from datetime import datetime
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Include milliseconds
-            debug_file = os.path.join(debug_dir, f"web_prompt_{timestamp}.txt")
+            # Create unique filename with step info and microsecond precision
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            step_info = getattr(ctx, 'step_number', getattr(ctx, 'step', 'unknown'))
+            total_info = getattr(ctx, 'total_steps', 'unknown')
+            debug_file = os.path.join(debug_dir, f"web_prompt_step{step_info}of{total_info}_{timestamp}.txt")
             
             with open(debug_file, 'w', encoding='utf-8') as f:
-                f.write("=" * 80 + "\n")
-                f.write(f"WEB AUTOMATION PROMPT DEBUG - {timestamp}\n")
-                f.write("=" * 80 + "\n")
+                f.write("################################################################################\n")
+                f.write(f"FULL PROMPT SENT TO EXTERNAL API - {datetime.now()}\n")
+                f.write("################################################################################\n")
+                f.write(f"Step: {step_info} of {total_info}\n")
                 f.write(f"Goal: {goal}\n")
                 f.write(f"URL: {ctx.url}\n")
                 f.write(f"Page Title: {ctx.title}\n")
                 f.write(f"Page Signature: {ctx.signature}\n")
-                f.write("-" * 40 + "\n")
-                f.write("FULL PROMPT SENT TO LLM:\n")
-                f.write("-" * 40 + "\n")
+                f.write(f"Overall Goal: {getattr(ctx, 'overall_goal', 'not specified')}\n")
+                f.write("=" * 80 + "\n")
+                f.write("FULL PROMPT CONTENT:\n")
+                f.write("=" * 80 + "\n")
                 f.write(prompt)
                 f.write("\n" + "=" * 80 + "\n")
+                f.write(f"Prompt length: {len(prompt)} characters\n")
+                f.write("################################################################################\n")
             
-            print(f"🐛 DEBUG: Prompt saved to {debug_file}")
+            print(f"🐛 DEBUG: Prompt saved to {os.path.abspath(debug_file)}")
         except Exception as debug_error:
             print(f"⚠️ DEBUG: Failed to save prompt: {debug_error}")
-        # END DEBUG CODE###############################
+        # ############################################################################# 
+        # END DEBUG CODE - REMOVE BEFORE PRODUCTION
+        # ############################################################################# 
 
         # 2) Query LLM (expects JSON result)
         try:
             raw_response = self.llm.query_external_api(prompt)
             
-            # DEBUG: Save LLM response to file for troubleshooting##########################
+            # ############################################################################# 
+            # DEBUG: Save LLM response to file for troubleshooting
+            # ############################################################################# 
             # TODO: REMOVE OR COMMENT OUT THIS DEBUG CODE LATER
+            # ############################################################################# 
             try:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-                debug_file = os.path.join(debug_dir, f"web_response_{timestamp}.txt")
+                # Use same timestamp and step info for matching prompt/response pairs
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                step_info = getattr(ctx, 'step_number', getattr(ctx, 'step', 'unknown'))
+                total_info = getattr(ctx, 'total_steps', 'unknown')
+                debug_file = os.path.join(debug_dir, f"web_response_step{step_info}of{total_info}_{timestamp}.txt")
                 
                 with open(debug_file, 'w', encoding='utf-8') as f:
-                    f.write("=" * 80 + "\n")
-                    f.write(f"WEB AUTOMATION RESPONSE DEBUG - {timestamp}\n")
-                    f.write("=" * 80 + "\n")
+                    f.write("################################################################################\n")
+                    f.write(f"FULL RESPONSE FROM EXTERNAL API - {datetime.now()}\n")
+                    f.write("################################################################################\n")
+                    f.write(f"Step: {step_info} of {total_info}\n")
                     f.write(f"Goal: {goal}\n")
                     f.write(f"URL: {ctx.url}\n")
-                    f.write("-" * 40 + "\n")
-                    f.write("RAW LLM RESPONSE:\n")
-                    f.write("-" * 40 + "\n")
+                    f.write(f"Overall Goal: {getattr(ctx, 'overall_goal', 'not specified')}\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("RAW LLM RESPONSE CONTENT:\n")
+                    f.write("=" * 80 + "\n")
                     f.write(raw_response)
                     f.write("\n" + "=" * 80 + "\n")
+                    f.write(f"Response length: {len(raw_response)} characters\n")
+                    f.write("################################################################################\n")
                 
-                print(f"🐛 DEBUG: Response saved to {debug_file}")
+                print(f"🐛 DEBUG: Response saved to {os.path.abspath(debug_file)}")
             except Exception as debug_error:
                 print(f"⚠️ DEBUG: Failed to save response: {debug_error}")
-            # END DEBUG CODE############################
+            # ############################################################################# 
+            # END DEBUG CODE - REMOVE BEFORE PRODUCTION
+            # ############################################################################# 
             
             print(f"🤖 LLM Raw Response: {raw_response[:200]}...")  # Debug output
             
@@ -195,8 +219,8 @@ class StepExecutor:
                 )
                 return StepOutcome(batch=batch, evidence=empty_ev, confidence=confidence, rationale=rationale)
 
-        # 4) Execute batch
-        evidence = await self.browser.execute_action_batch(batch)
+        # 4) Execute batch with fallback logic
+        evidence = await self._execute_with_fallbacks(batch, goal, ctx, recent_actions)
 
         # Log decision/result if logger provided
         if self.logger is not None:
@@ -208,6 +232,214 @@ class StepExecutor:
 
         return StepOutcome(batch=batch, evidence=evidence, confidence=confidence, rationale=rationale)
 
+    async def _execute_with_fallbacks(
+        self, 
+        initial_batch: CommandBatch, 
+        goal: str, 
+        ctx: PageContext, 
+        recent_actions: Optional[List[Dict[str, Any]]] = None
+    ) -> Evidence:
+        """
+        Execute commands with fallback logic:
+        1. Try initial batch (ranked interactive elements)
+        2. If fails, retry with full DOM skeleton
+        3. If still fails, retry with DOM diff context
+        """
+        # First attempt: Execute original batch
+        evidence = await self.browser.execute_action_batch(initial_batch)
+        
+        # Check if we should try fallbacks:
+        # 1. If there are errors (selectors not found, etc.)
+        # 2. If interaction commands executed but DOM didn't change (suspicious)
+        # 3. If success is False
+        should_fallback = (
+            len(evidence.errors) > 0 or 
+            not evidence.success or
+            (len(initial_batch.commands) > 0 and 
+             any(cmd.type in ['click', 'type'] for cmd in initial_batch.commands) and
+             not evidence.success)
+        )
+        
+        # If successful, return immediately
+        if not should_fallback:
+            return evidence
+            
+        print(f"🔄 First attempt needs fallback. Success: {evidence.success}, Errors: {len(evidence.errors)}")
+        print(f"🔄 Error details: {evidence.errors}")
+        
+        # Second attempt: Use full DOM skeleton for richer context
+        try:
+            fallback_batch = await self._create_fallback_batch_with_full_dom(goal, ctx, recent_actions)
+            if fallback_batch and len(fallback_batch.commands) > 0:
+                print("🔄 Attempting fallback with full DOM skeleton...")
+                fallback_evidence = await self.browser.execute_action_batch(fallback_batch)
+                fallback_evidence.fallback_used = True
+                
+                # If this worked, return it
+                if fallback_evidence.success or len(fallback_evidence.errors) == 0:
+                    print("✅ Fallback with full DOM succeeded!")
+                    return fallback_evidence
+                    
+                print(f"🔄 Full DOM fallback also failed with {len(fallback_evidence.errors)} errors.")
+        except Exception as e:
+            print(f"⚠️ Failed to create full DOM fallback: {e}")
+        
+        # Third attempt: Use DOM diff if available
+        try:
+            diff_batch = await self._create_fallback_batch_with_dom_diff(goal, ctx, recent_actions)
+            if diff_batch and len(diff_batch.commands) > 0:
+                print("🔄 Attempting fallback with DOM diff...")
+                diff_evidence = await self.browser.execute_action_batch(diff_batch)
+                diff_evidence.fallback_used = True
+                
+                # If this worked, return it
+                if diff_evidence.success or len(diff_evidence.errors) == 0:
+                    print("✅ DOM diff fallback succeeded!")
+                    return diff_evidence
+                    
+                print(f"🔄 DOM diff fallback also failed with {len(diff_evidence.errors)} errors.")
+        except Exception as e:
+            print(f"⚠️ Failed to create DOM diff fallback: {e}")
+        
+        # All fallbacks failed, return the original evidence with fallback attempted flag
+        print("❌ All fallback attempts failed, returning original evidence")
+        evidence.fallback_used = True
+        return evidence
+
+    async def _create_fallback_batch_with_full_dom(
+        self, 
+        goal: str, 
+        ctx: PageContext, 
+        recent_actions: Optional[List[Dict[str, Any]]] = None
+    ) -> Optional[CommandBatch]:
+        """Create a new command batch using full DOM skeleton instead of ranked elements."""
+        try:
+            # Import dom_processor to get full skeleton
+            from . import dom_processor as dp
+            from utils.dom_skeleton import create_dom_skeleton
+            
+            # Get current DOM for full skeleton
+            raw_dom, title = await self.browser.get_current_dom()
+            compressed = dp.compress_dom(raw_dom, goal)
+            full_skeleton = create_dom_skeleton(compressed)
+            
+            # Build a richer prompt with full DOM skeleton
+            fallback_prompt = self._build_fallback_prompt_with_full_dom(goal, ctx, full_skeleton, recent_actions)
+            
+            # Query LLM with richer context
+            raw_response = self.llm.query_external_api(fallback_prompt)
+            
+            # Debug: Save fallback prompt and response
+            try:
+                import os
+                debug_dir = os.path.join(os.getcwd(), "debug_prompts")
+                os.makedirs(debug_dir, exist_ok=True)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                step_info = getattr(ctx, 'step_number', 'unknown')
+                
+                # Save fallback prompt
+                prompt_file = os.path.join(debug_dir, f"fallback_prompt_step{step_info}_{timestamp}.txt")
+                with open(prompt_file, 'w', encoding='utf-8') as f:
+                    f.write("FALLBACK PROMPT WITH FULL DOM SKELETON\n")
+                    f.write("=" * 50 + "\n")
+                    f.write(fallback_prompt)
+                
+                # Save fallback response  
+                response_file = os.path.join(debug_dir, f"fallback_response_step{step_info}_{timestamp}.txt")
+                with open(response_file, 'w', encoding='utf-8') as f:
+                    f.write("FALLBACK RESPONSE\n")
+                    f.write("=" * 50 + "\n")
+                    f.write(str(raw_response))
+                
+                print(f"🐛 DEBUG: Fallback prompt saved to {prompt_file}")
+                print(f"🐛 DEBUG: Fallback response saved to {response_file}")
+            except Exception as debug_error:
+                print(f"⚠️ DEBUG: Failed to save fallback debug files: {debug_error}")
+            
+            commands, confidence, rationale = self._parse_llm_json(raw_response)
+            
+            print(f"🔍 FALLBACK DEBUG: Parsed {len(commands)} commands from LLM response")
+            for i, cmd in enumerate(commands):
+                print(f"  Command {i+1}: {cmd.type} selector='{cmd.selector}' text='{cmd.text}'")
+            
+            return CommandBatch(commands=commands)
+            
+        except Exception as e:
+            print(f"⚠️ Error creating full DOM fallback: {e}")
+            return None
+
+    async def _create_fallback_batch_with_dom_diff(
+        self, 
+        goal: str, 
+        ctx: PageContext, 
+        recent_actions: Optional[List[Dict[str, Any]]] = None
+    ) -> Optional[CommandBatch]:
+        """Create a new command batch using DOM diff to show only what changed."""
+        try:
+            # This would require implementing DOM diff logic
+            # For now, return None - we can implement this later if needed
+            return None
+            
+        except Exception as e:
+            print(f"⚠️ Error creating DOM diff fallback: {e}")
+            return None
+
+    def _build_fallback_prompt_with_full_dom(
+        self, 
+        goal: str, 
+        ctx: PageContext, 
+        full_skeleton: str, 
+        recent_actions: Optional[List[Dict[str, Any]]] = None
+    ) -> str:
+        """Build a prompt using the full DOM skeleton instead of ranked interactive elements."""
+        recent_actions = recent_actions or []
+        
+        lines = []
+        lines.append("System:")
+        lines.append("FALLBACK MODE: The initial ranked elements failed to provide working selectors.")
+        lines.append("You are a web-navigation expert. The full DOM skeleton is provided below.")
+        lines.append("Analyze the ENTIRE skeleton and choose ANY selector that will advance the goal.")
+        lines.append("You can use ANY element you see - buttons, divs, spans, inputs, links, etc.")
+        lines.append("Return 1-3 JSON commands with the EXACT selectors you identify in the DOM.")
+        lines.append("")
+        
+        lines.append(f"--- Goal ---")
+        lines.append(goal.strip())
+        lines.append("")
+        
+        lines.append(f"--- Page Info ---")
+        lines.append(f"URL: {ctx.url}")
+        lines.append(f"Title: {ctx.title}")
+        lines.append(f"Current Step: {getattr(ctx, 'step_number', 'unknown')} of {getattr(ctx, 'total_steps', 'unknown')}")
+        lines.append("")
+        
+        lines.append("--- FULL DOM SKELETON ---")
+        lines.append("INSTRUCTIONS: Look through this ENTIRE skeleton for ANY element that could help achieve the goal.")
+        lines.append("Focus on: input fields, buttons, clickable divs, forms, links, etc.")
+        lines.append("")
+        lines.append(full_skeleton)
+        lines.append("")
+        
+        if recent_actions:
+            lines.append("--- Recent Actions That Failed ---")
+            for action in recent_actions[-3:]:  # Show last 3 failed actions
+                lines.append(f"- {action}")
+            lines.append("")
+        
+        lines.append("--- Required Response Format ---")
+        lines.append("Return JSON with 'commands' array. Each command needs:")
+        lines.append("- type: 'click', 'type', 'press', or 'navigate'")
+        lines.append("- selector: CSS selector you found in the DOM above")
+        lines.append("- text: (for type commands) what to type")
+        lines.append("- key: (for press commands) key to press")
+        lines.append("- url: (for navigate commands) URL to go to")
+        lines.append("")
+        lines.append("CRITICAL: Use EXACT selectors from the DOM skeleton above.")
+        lines.append("Example: {'commands': [{'type': 'click', 'selector': '#specific-button-id'}]}")
+        
+        return "\n".join(lines)
+
     # -----------------
     # Helpers
     # -----------------
@@ -215,10 +447,21 @@ class StepExecutor:
         """Leniently coerce the LLM response to (commands, confidence, rationale)."""
         # If the LLM returned a string, try json.loads
         if isinstance(obj, str):
-            try:
-                obj = json.loads(obj)
-            except Exception:
-                obj = {}
+            # First, try to extract JSON from markdown code blocks
+            import re
+            markdown_json_match = re.search(r'```json\s*(\{.*?\})\s*```', obj, re.DOTALL)
+            if markdown_json_match:
+                json_str = markdown_json_match.group(1)
+                try:
+                    obj = json.loads(json_str)
+                except Exception:
+                    obj = {}
+            else:
+                # Try direct JSON parsing
+                try:
+                    obj = json.loads(obj)
+                except Exception:
+                    obj = {}
         if not isinstance(obj, dict):
             obj = {}
 

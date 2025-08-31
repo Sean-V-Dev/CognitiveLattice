@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .models import PageContext, CommandBatch, Command
 
 # Hard caps to keep prompts small and deterministic
@@ -7,14 +7,37 @@ MAX_CANDIDATES = 30
 MAX_SEL_PER_CANDIDATE = 3
 
 SYSTEM_INSTRUCTIONS = (
-    "You are a web-navigation planner. "
-    "Given a goal, a DOM skeleton, and ranked action candidates, return 1-3 JSON commands "
-    "that make concrete progress toward the goal. Use only provided selectors if possible. "
-    "IMPORTANT: When typing into search fields, input boxes, or forms, always follow the 'type' command "
-    "immediately with a 'press' command with 'key': 'Enter' - this is the standard web pattern. "
-    "Most sites (Google, YouTube, etc.) expect Enter after typing, not clicking submit buttons. "
-    "CLICKING: For elements with text content (buttons, links, spans with role='link'), use 'click' commands. "
-    "Prefer the highest-scoring candidates that match your goal. Ignore accessibility/usability helpers unless specifically needed."
+    "You are a web-navigation planner with access to recent memory and state tracking. "
+    "Given a goal, DOM skeleton, ranked candidates, and recent context, return 1-3 JSON commands "
+    "that make concrete progress toward the goal. "
+    
+    "MEMORY & CONTEXT: Use the recent events and state to understand what has already been done "
+    "and what the next logical step should be. Pay attention to DOM signature changes and success/failure patterns. "
+    
+    "CYCLE PREVENTION: If you see the same element was clicked multiple times in recent actions, "
+    "DO NOT click it again. Look for alternative approaches like different selectors, waiting for dynamic content, "
+    "or navigating to different areas of the page. "
+    
+    "SELECTOR DISCIPLINE: Prefer selectors from the ranked candidates list. Reference by candidate number when possible. "
+    "Only invent custom selectors as a last resort. "
+    
+    "SEARCH PATTERNS: When looking for search fields, prioritize: input[type=search], input[name*='zip'|'postal'], "
+    "input[placeholder*='ZIP'|'location'], [aria-label*='search'|'location'], [role='textbox']. "
+    
+    "TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields and forms. "
+    "This is the standard web pattern for Google, YouTube, location search, etc. "
+    
+    "DYNAMIC CONTENT: If you click a button that should reveal content (like search forms) but don't see "
+    "the expected elements in candidates, the content may be loading. Try looking for different selectors "
+    "or consider that the click might have triggered a modal, dropdown, or navigation. "
+    
+    "CONSTRAINTS: Do not click login/rewards/marketing unless explicitly needed for the goal. "
+    "Focus only on location search functionality. If no search field is visible, click elements "
+    "that reveal search boxes or location choosers. "
+    
+    "PROGRESS VERIFICATION: Use DOM signature changes as evidence of successful actions. "
+    "If signature unchanged after click, try different approach. If signature changed but expected "
+    "elements not found, look for alternative interaction patterns."
 )
 
 RESPONSE_SCHEMA = {
@@ -43,6 +66,186 @@ RESPONSE_SCHEMA = {
 }
 
 
+def _build_recent_state_context(page_context: PageContext) -> str:
+    """Build context from recent lattice events and step history."""
+    context_parts = []
+    
+    # Current step tracking
+    if hasattr(page_context, 'current_step') and hasattr(page_context, 'total_steps'):
+        context_parts.append(f"STEP {page_context.current_step} of {page_context.total_steps}")
+    
+    # Recent events from lattice (last 3-5 for relevance)
+    if hasattr(page_context, 'recent_events') and page_context.recent_events:
+        context_parts.append("RECENT ACTIONS:")
+        clicked_elements = []  # Track what we've clicked for cycle detection
+        
+        for i, event in enumerate(page_context.recent_events[-5:], 1):
+            # Extract key info from lattice events
+            if isinstance(event, dict):
+                action_type = event.get('type', 'unknown')
+                action_data = event.get('data', {})
+                
+                # Handle web step events
+                if action_type == 'web_step_completed':
+                    step_num = action_data.get('step_number', i)
+                    step_desc = action_data.get('step_description', 'unknown step')
+                    success = action_data.get('success', False)
+                    status = "✓" if success else "✗"
+                    context_parts.append(f"  {step_num}. {status} {step_desc}")
+                    
+                    # Extract actual commands executed
+                    result = action_data.get('result', {})
+                    if isinstance(result, dict):
+                        commands = result.get('commands_executed', [])
+                        for cmd in commands:
+                            if isinstance(cmd, dict):
+                                cmd_type = cmd.get('type', 'unknown')
+                                selector = cmd.get('selector', '')[:40]  # Truncate long selectors
+                                if cmd_type == 'click' and selector:
+                                    clicked_elements.append(selector)
+                                    context_parts.append(f"       → clicked: {selector}")
+                                elif cmd_type == 'type':
+                                    text = cmd.get('text', '')[:20]
+                                    context_parts.append(f"       → typed: {text} in {selector}")
+                
+                # Handle direct action events  
+                elif action_type == 'action':
+                    action_name = action_data.get('action', 'unknown')
+                    selector = action_data.get('selector', '')[:40]  # Truncate long selectors
+                    if action_name == 'click' and selector:
+                        clicked_elements.append(selector)
+                    context_parts.append(f"  {i}. {action_name}: {selector}")
+                    
+                elif action_type == 'navigation':
+                    url = action_data.get('url', '')
+                    context_parts.append(f"  {i}. Navigate to: {url}")
+        
+        # Cycle detection warning
+        if clicked_elements:
+            unique_clicks = set(clicked_elements)
+            if len(clicked_elements) > len(unique_clicks):
+                context_parts.append("⚠️  CYCLE DETECTED: Same elements clicked multiple times!")
+                for selector in unique_clicks:
+                    count = clicked_elements.count(selector)
+                    if count > 1:
+                        context_parts.append(f"    - '{selector}' clicked {count} times - try different approach!")
+    
+    # Previous DOM signature for change detection
+    if hasattr(page_context, 'previous_dom_signature'):
+        context_parts.append(f"PREV DOM SIGNATURE: {page_context.previous_dom_signature}")
+    
+    return "\n".join(context_parts) if context_parts else ""
+
+
+def _build_affordance_hints(goal: str) -> str:
+    """Build goal-specific affordance hints for common web patterns."""
+    goal_lower = goal.lower()
+    
+    hints = []
+    
+    # Location/ZIP search patterns
+    if any(term in goal_lower for term in ['location', 'zip', 'postal', 'address', 'store', 'find']):
+        hints.extend([
+            "LOCATION SEARCH HINTS:",
+            "- Look for: input[type=search], input[name*='zip'], input[placeholder*='ZIP/location']",
+            "- ARIA patterns: [aria-label*='search'|'location'|'zip'], [role='textbox']",
+            "- Button triggers: 'Find Store', 'Store Locator', 'Locations', 'Find Location'",
+            "- Common IDs: #store-locator, #zip-search, #location-input"
+        ])
+    
+    # Search functionality
+    if 'search' in goal_lower:
+        hints.extend([
+            "SEARCH HINTS:",
+            "- Primary: input[type=search], input[name*='search']",
+            "- Secondary: input[placeholder*='search'], .search-input",
+            "- Always press Enter after typing in search fields"
+        ])
+    
+    # Navigation patterns
+    if any(term in goal_lower for term in ['menu', 'navigate', 'go to']):
+        hints.extend([
+            "NAVIGATION HINTS:",
+            "- Look for: nav elements, [role='navigation'], .menu, .nav",
+            "- Mobile: button[aria-label*='menu'], .hamburger, .menu-toggle"
+        ])
+    
+    return "\n".join(hints) if hints else ""
+
+
+def _build_delta_verification(page_context: PageContext) -> str:
+    """Build verification signals for checking progress."""
+    signals = [
+        "PROGRESS VERIFICATION:",
+        "- DOM signature changes indicate successful actions",
+        "- URL changes suggest navigation progress", 
+        "- New form elements appearing = successful reveal actions",
+        "- If signature unchanged after action, try different approach",
+        "- If signature changed but no search field appears, look for modals/dropdowns/dynamic content"
+    ]
+    
+    # Add current signature for comparison
+    if hasattr(page_context, 'dom_signature'):
+        signals.append(f"- Current DOM signature: {page_context.dom_signature}")
+    
+    # Add specific cycle detection guidance
+    if hasattr(page_context, 'recent_events') and page_context.recent_events:
+        # Check for repeated clicks in recent events
+        clicked_selectors = []
+        for event in page_context.recent_events[-3:]:  # Last 3 events
+            if isinstance(event, dict):
+                action_data = event.get('data', {})
+                if isinstance(action_data, dict):
+                    result = action_data.get('result', {})
+                    if isinstance(result, dict):
+                        commands = result.get('commands_executed', [])
+                        for cmd in commands:
+                            if isinstance(cmd, dict) and cmd.get('type') == 'click':
+                                clicked_selectors.append(cmd.get('selector', ''))
+        
+        # Add cycle warning
+        if clicked_selectors:
+            unique_selectors = set(filter(None, clicked_selectors))  # Remove empty strings
+            if len(clicked_selectors) > len(unique_selectors):
+                signals.append("⚠️ CYCLE WARNING: Avoid clicking elements that were recently clicked")
+                signals.append("- Try different selectors or look for alternative interaction patterns")
+    
+    return "\n".join(signals)
+
+
+def _build_lattice_guidance(page_context: PageContext) -> str:
+    """Build guidance from cognitive lattice for next logical steps."""
+    guidance_parts = []
+    
+    # Check if we have lattice data available
+    if hasattr(page_context, 'lattice_state') and page_context.lattice_state:
+        lattice_state = page_context.lattice_state
+        
+        # Expected next steps from planning
+        if 'planned_steps' in lattice_state and 'current_step_index' in lattice_state:
+            current_idx = lattice_state['current_step_index']
+            planned_steps = lattice_state['planned_steps']
+            
+            if current_idx < len(planned_steps):
+                current_plan = planned_steps[current_idx]
+                guidance_parts.append(f"LATTICE GUIDANCE: {current_plan}")
+            
+            # Show next planned step for context
+            if current_idx + 1 < len(planned_steps):
+                next_plan = planned_steps[current_idx + 1]
+                guidance_parts.append(f"NEXT PLANNED: {next_plan}")
+        
+        # Success patterns from memory
+        if 'successful_patterns' in lattice_state:
+            patterns = lattice_state['successful_patterns']
+            if patterns:
+                guidance_parts.append("SUCCESSFUL PATTERNS:")
+                for pattern in patterns[-3:]:  # Last 3 successful patterns
+                    guidance_parts.append(f"  - {pattern}")
+    
+    return "\n".join(guidance_parts) if guidance_parts else "LATTICE: No specific guidance available"
+
+
 def _shape_candidates(ctx: PageContext) -> List[Dict[str, Any]]:
     shaped = []
     for el in ctx.interactive[:MAX_CANDIDATES]:
@@ -56,35 +259,77 @@ def _shape_candidates(ctx: PageContext) -> List[Dict[str, Any]]:
 
 
 def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dict[str, Any]] | None = None) -> str:
-    """Assemble a compact, model-friendly planning prompt."""
+    """Assemble a rich, context-aware planning prompt with lattice integration."""
     recent_actions = recent_actions or []
     skeleton = (ctx.skeleton or "")[:MAX_SKELETON_CHARS]
     candidates = _shape_candidates(ctx)
 
     lines: List[str] = []
     lines.append("System:\n" + SYSTEM_INSTRUCTIONS)
+    
+    # Enhanced goal section with affordance hints
     lines.append("--- Goal ---\n" + goal.strip())
-    lines.append(f"--- Page ---\nURL: {ctx.url}\nTitle: {ctx.title}\nSignature: {ctx.signature}")
+    affordance_hints = _build_affordance_hints(goal)
+    if affordance_hints:
+        lines.append("--- " + affordance_hints.split(':')[0] + " ---\n" + affordance_hints)
+    
+    # Recent state and memory context
+    recent_context = _build_recent_state_context(ctx)
+    if recent_context:
+        lines.append("--- Recent State ---\n" + recent_context)
+    
+    # Lattice guidance for next logical steps
+    lattice_guidance = _build_lattice_guidance(ctx)
+    lines.append("--- " + lattice_guidance.split(':')[0] + " ---\n" + lattice_guidance)
+    
+    # Progress verification guidance
+    delta_verification = _build_delta_verification(ctx)
+    lines.append("--- " + delta_verification.split(':')[0] + " ---\n" + delta_verification)
+    
+    # Current page state
+    lines.append(f"--- Page State ---\nURL: {ctx.url}\nTitle: {ctx.title}\nSignature: {ctx.signature}")
+    
+    # DOM skeleton
     lines.append("--- DOM Skeleton (truncated) ---\n" + skeleton)
-    lines.append("--- Ranked Candidates ---")
+    
+    # Ranked candidates with discipline reminders
+    lines.append("--- Ranked Candidates (USE THESE SELECTORS) ---")
     for i, c in enumerate(candidates, 1):
         sels = ", ".join(c["selectors"])
         text = c["text"] or ""
         lines.append(f"{i}. <{c['tag']}> score={c['score']} text=\"{text}\" selectors=[{sels}]")
+    
+    # Legacy recent actions (if any)
     if recent_actions:
-        lines.append("--- Recent Actions ---")
-        for a in recent_actions[-5:]:  # last 5 only
+        lines.append("--- Legacy Recent Actions ---")
+        for a in recent_actions[-3:]:  # Reduced to 3 since we have richer context now
             lines.append(f"- {a}")
-    # Guidance + schema hint
+    
+    # Constraints and stop conditions
+    lines.append("--- Constraints ---")
+    lines.append("- Do NOT click login/rewards/marketing unless explicitly required")
+    lines.append("- Focus ONLY on location search functionality") 
+    lines.append("- If no search field visible, click elements that reveal search boxes")
+    lines.append("- DO NOT repeat actions from recent history - avoid clicking same elements")
+    lines.append("- If stuck in a loop, try: different selectors, navigation links, or wait commands")
+    lines.append("- STOP if goal is achieved or clearly impossible")
+    
+    # Compact goal restatement for focus
+    lines.append("--- Goal Restatement ---")
+    lines.append(f"PRIMARY OBJECTIVE: {goal.strip()}")
+    
+    # Response format with examples
     lines.append("--- Respond ---\n"
                  "Return ONLY valid JSON with these exact fields:\n"
                  "{\n"
                  '  "commands": [{"type": "type", "selector": "input[name=search]", "text": "45305"}, {"type": "press", "key": "Enter"}],\n'
                  '  "confidence": 0.8,\n'
-                 '  "rationale": "typing search term and pressing Enter (standard web pattern)"\n'
+                 '  "rationale": "Found search input from candidate #3, typing ZIP and pressing Enter per web standard"\n'
                  "}\n"
-                 "Use only provided selectors when possible. Prefer high-score candidates.\n"
+                 "SELECTOR DISCIPLINE: Use selectors from ranked candidates above (reference by number).\n"
+                 "TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields.\n"
                  "Limit commands to 1–3. Do not include any text outside the JSON.")
+    
     return "\n\n".join(lines)
 
 

@@ -198,19 +198,63 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
             for step_num, step_description in enumerate(web_steps, 1):
                 print(f"\n🎯 Executing Step {step_num}/{len(web_steps)}: {step_description}")
                 
-                # Execute this specific step using the new single-step method
+                # Gather enhanced context for this step
+                recent_events = []
+                previous_signature = None
+                lattice_state = {}
+                
+                if self.lattice:
+                    # Get recent events from lattice event log (last 5)
+                    if hasattr(self.lattice, 'event_log') and self.lattice.event_log:
+                        recent_events = self.lattice.event_log[-5:]
+                    
+                    # Get active task for context
+                    active_task = self.lattice.get_active_task()
+                    
+                    # Build lattice state with planning context
+                    lattice_state = {
+                        'planned_steps': web_steps,
+                        'current_step_index': step_num - 1,
+                        'successful_patterns': [],  # Could be populated from previous sessions
+                        'session_id': self.lattice.session_id,
+                        'active_task': active_task
+                    }
+                    
+                    # Get previous DOM signature for delta detection
+                    if recent_events:
+                        for event in reversed(recent_events):
+                            if isinstance(event, dict) and 'result' in event:
+                                result = event['result']
+                                if isinstance(result, dict) and 'page_signature' in result:
+                                    previous_signature = result['page_signature']
+                                    break
+                
+                # Execute this specific step using enhanced context
                 step_result = await self.web_agent.execute_single_step(
                     step_goal=step_description, 
-                    current_url=current_url
+                    current_url=current_url,
+                    step_number=step_num,
+                    total_steps=len(web_steps),
+                    overall_goal=primary_goal,
+                    recent_events=recent_events,
+                    previous_signature=previous_signature,
+                    lattice_state=lattice_state
                 )
                 
-                # Check step success
-                success = step_result.get("success", False)
+                # Check step success with enhanced logic
+                technical_success = step_result.get("success", False)
                 dom_changed = step_result.get("dom_changed", False)
                 error = step_result.get("error")
                 
+                # Check if goal was logically achieved despite technical issues
+                logical_success = self._check_logical_success(step_result, step_description)
+                
+                # Use logical success if available, fall back to technical success
+                success = logical_success if logical_success is not None else technical_success
+                
                 print(f"[WEB AGENT] Step {step_num}: {'✓' if success else '✗'} "
                       f"DOM Changed: {dom_changed} "
+                      f"(Technical: {'✓' if technical_success else '✗'}, Logical: {'✓' if logical_success else '?' if logical_success is None else '✗'})"
                       f"{f'Error: {error}' if error else ''}")
                 
                 # Log step completion to lattice
@@ -319,6 +363,84 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
             return {"status": "No lattice available"}
         
         return self.lattice.get_lattice_summary()
+    
+    def _check_logical_success(self, step_result: Dict[str, Any], step_description: str) -> Optional[bool]:
+        """
+        Check if step achieved its logical goal despite technical execution issues.
+        Returns: True (logical success), False (logical failure), None (unclear)
+        """
+        try:
+            # Check for explicit verification result first
+            verification = step_result.get("verification", {})
+            if isinstance(verification, dict):
+                if verification.get("complete") is True:
+                    print(f"🎯 LOGICAL SUCCESS: Explicit verification passed")
+                    return True
+                elif verification.get("complete") is False:
+                    print(f"🚫 LOGICAL FAILURE: Explicit verification failed")
+                    return False
+            
+            # Check for completion analysis from enhanced verification
+            completion_analysis = step_result.get("completion_analysis", {})
+            if isinstance(completion_analysis, dict):
+                # Look for verification signals
+                signals = completion_analysis.get("signals", {})
+                if isinstance(signals, dict):
+                    has_affordance = signals.get("has_affordance", False)
+                    has_details = signals.get("has_details", False)
+                    
+                    # If we have both affordance and details, it's a logical success
+                    if has_affordance and has_details:
+                        print(f"🎯 LOGICAL SUCCESS: Found affordance + details signals")
+                        return True
+            
+            # Check evidence findings for location verification
+            evidence = step_result.get("evidence", {})
+            if isinstance(evidence, dict):
+                findings = evidence.get("findings", {})
+                if isinstance(findings, dict) and findings.get("location_verified") is True:
+                    print(f"🎯 LOGICAL SUCCESS: Location verified flag set")
+                    return True
+            
+            # Check for DOM changes + specific goal patterns
+            dom_changed = step_result.get("dom_changed", False)
+            if dom_changed:
+                # For location selection goals
+                if any(keyword in step_description.lower() for keyword in ["select", "location", "restaurant", "store"]):
+                    # If DOM changed and it's a selection step, likely succeeded
+                    final_url = step_result.get("final_url", "")
+                    if any(pattern in final_url.lower() for pattern in ["/location/", "/store/", "/restaurants/"]):
+                        print(f"🎯 LOGICAL SUCCESS: Location URL pattern + DOM change")
+                        return True
+                
+                # For search/navigation goals  
+                if any(keyword in step_description.lower() for keyword in ["search", "find", "navigate", "go to"]):
+                    # If DOM changed on search/nav, likely succeeded
+                    print(f"🎯 LOGICAL SUCCESS: Search/nav goal + DOM change")
+                    return True
+            
+            # Check error patterns that might be false negatives
+            error = step_result.get("error", "")
+            if error and isinstance(error, str):
+                # Playwright viewport/timeout issues don't necessarily mean logical failure
+                false_negative_patterns = [
+                    "element is outside of the viewport",
+                    "waiting for element to be visible",
+                    "retrying click action",
+                    "timeout",
+                    "element not stable"
+                ]
+                if any(pattern in error.lower() for pattern in false_negative_patterns):
+                    # If DOM changed despite viewport issues, likely succeeded
+                    if dom_changed:
+                        print(f"🎯 LOGICAL SUCCESS: DOM changed despite viewport error")
+                        return True
+            
+            return None  # Unable to determine logical success
+            
+        except Exception as e:
+            print(f"⚠️ Error checking logical success: {e}")
+            return None
 
 
 # Backward-compatible function that maintains existing API

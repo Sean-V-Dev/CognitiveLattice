@@ -7,6 +7,7 @@ import re
 import hashlib
 import os
 from typing import Dict, Any, List
+from datetime import datetime
 from utils.dom_skeleton import create_dom_skeleton
 from .models import Element, PageContext
 
@@ -15,7 +16,7 @@ DEBUG = bool(int(os.getenv("WEB_AGENT_DEBUG", "0")))
 
 # Single DOM truncation constant with goal-aware override
 DOM_TRUNCATE_CHARS = int(os.getenv("WEB_AGENT_DOM_TRUNCATE_CHARS", "18000"))
-DOM_TRUNCATE_CHARS_LOCATION = int(os.getenv("WEB_AGENT_DOM_TRUNCATE_CHARS_LOCATION", "35000"))
+DOM_TRUNCATE_CHARS_LOCATION = int(os.getenv("WEB_AGENT_DOM_TRUNCATE_CHARS_LOCATION", "70000"))
 
 # Interactive element processing limits
 INTERACTIVE_MAX_ITEMS = int(os.getenv("WEB_AGENT_INTERACTIVE_MAX_ITEMS", "100"))
@@ -131,6 +132,60 @@ def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str
     return uniq[:5]  # Return top 5 selectors, first is primary
 
 
+def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
+    """Determine if a div/span is likely clickable based on attributes and content."""
+    # Priority 1: Location/store containers with identifying attributes
+    location_attrs = [
+        "data-qa-restaurant-id", "data-store-id", "data-location-id", 
+        "data-shop-id", "data-venue-id", "data-place-id"
+    ]
+    if any(attrs.get(attr) for attr in location_attrs):
+        return True
+        
+    # Priority 2: Check for explicit click indicators
+    if attrs.get("onclick"): return True
+    if attrs.get("role") in ["button", "link", "tab", "menuitem"]: return True
+    if "tabindex" in attrs and attrs["tabindex"] != "-1": return True
+    
+    # Check for navigation/location keywords in text or classes
+    combined_text = " ".join([
+        text.lower(),
+        _safe_get_class_string(attrs).lower(),
+        attrs.get("data-testid", "").lower(),
+        attrs.get("aria-label", "").lower()
+    ])
+    
+    # Strong indicators this is a navigation/location element
+    navigation_keywords = [
+        "find", "locate", "location", "store", "shop", "order", 
+        "menu", "navigation", "nav", "click", "button", "link"
+    ]
+    
+    # Special boost for obvious location finder elements
+    location_phrases = [
+        "find location", "find store", "store locator", 
+        "location finder", "enter location", "location search",
+        "find a store", "store finder", "find locations"
+    ]
+    
+    for phrase in location_phrases:
+        if phrase in combined_text:
+            return True
+            
+    # Check if multiple navigation keywords are present
+    keyword_count = sum(1 for kw in navigation_keywords if kw in combined_text)
+    if keyword_count >= 2:
+        return True
+        
+    # Check for button-like classes
+    button_classes = ["btn", "button", "clickable", "interactive", "link"]
+    for btn_class in button_classes:
+        if btn_class in _safe_get_class_string(attrs).lower():
+            return True
+            
+    return False
+
+
 def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_ITEMS) -> List[Element]:
     """Extract interactive elements from HTML."""
     # Traditional interactive elements (a, button, input, select)
@@ -141,59 +196,6 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
     interactive_div_pattern = re.compile(r"<\s*(div|span)\b([^>]*)>(.*?)</\s*\1\s*>", re.I | re.S)
     
     elements: List[Element] = []
-
-    def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
-        """Determine if a div/span is likely clickable based on attributes and content."""
-        # Priority 1: Location/store containers with identifying attributes
-        location_attrs = [
-            "data-qa-restaurant-id", "data-store-id", "data-location-id", 
-            "data-shop-id", "data-venue-id", "data-place-id"
-        ]
-        if any(attrs.get(attr) for attr in location_attrs):
-            return True
-            
-        # Priority 2: Check for explicit click indicators
-        if attrs.get("onclick"): return True
-        if attrs.get("role") in ["button", "link", "tab", "menuitem"]: return True
-        if "tabindex" in attrs and attrs["tabindex"] != "-1": return True
-        
-        # Check for navigation/location keywords in text or classes
-        combined_text = " ".join([
-            text.lower(),
-            _safe_get_class_string(attrs).lower(),
-            attrs.get("data-testid", "").lower(),
-            attrs.get("aria-label", "").lower()
-        ])
-        
-        # Strong indicators this is a navigation/location element
-        navigation_keywords = [
-            "find", "locate", "location", "store", "shop", "order", 
-            "menu", "navigation", "nav", "click", "button", "link"
-        ]
-        
-        # Special boost for obvious location finder elements
-        location_phrases = [
-            "find location", "find store", "store locator", 
-            "location finder", "enter location", "location search",
-            "find a store", "store finder", "find locations"
-        ]
-        
-        for phrase in location_phrases:
-            if phrase in combined_text:
-                return True
-                
-        # Check if multiple navigation keywords are present
-        keyword_count = sum(1 for kw in navigation_keywords if kw in combined_text)
-        if keyword_count >= 2:
-            return True
-            
-        # Check for button-like classes
-        button_classes = ["btn", "button", "clickable", "interactive", "link"]
-        for btn_class in button_classes:
-            if btn_class in _safe_get_class_string(attrs).lower():
-                return True
-                
-        return False
 
     # 1) Capture traditional interactive elements
     for m in pattern.finditer(html or ""):
@@ -307,9 +309,12 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
             if input_type in ["text", "search", "tel", ""]:
                 score += 0.8
                 
-        # Enhanced scoring for interactive divs/spans
+        # Enhanced scoring for interactive divs/spans - conditional on clickability
         if element.tag in ["div", "span"]:
-            score += 1.2  # Good boost for clickable divs
+            # Use the same is_clickable_div logic from element extraction
+            attrs_dict = {k: v for k, v in element.attrs.items()}  # Convert to dict if needed
+            if is_clickable_div(attrs_dict, element.text):
+                score += 1.2  # Good boost for clickable divs ONLY
                 
         # Location-related keywords for buttons/links
         location_keywords = ["find location", "store locator", "enter zip"]
@@ -354,19 +359,177 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
     return ranked[:INTERACTIVE_MAX_ITEMS]
 
 
-def create_page_context(url: str, title: str, raw_dom: str, goal: str = "") -> PageContext:
-    """Create complete page context for LLM reasoning."""
-    compressed = compress_dom(raw_dom, goal)
+async def create_page_context(page, goal: str = "", step_number: int = 1, total_steps: int = 1, 
+                            recent_events: List[Dict] = None, lattice_state: Dict = None,
+                            previous_dom_signature: str = "") -> PageContext:
+    """Enhanced context creation with comprehensive element debugging."""
+    
+    ########################################################
+    # TODO: REMOVE DEBUG LOGGING BEFORE PRODUCTION
+    ########################################################
+    
+    # Take page screenshot for manual verification
+    screenshot_path = f"debug_prompts/page_screenshot_step{step_number}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.png"
+    await page.screenshot(path=screenshot_path)
+    print(f"🖼️ Page screenshot saved: {screenshot_path}")
+    
+    # Get ALL input elements on the page
+    all_inputs = await page.query_selector_all('input')
+    input_debug_path = f"debug_prompts/input_debug_step{step_number}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.txt"
+    
+    with open(input_debug_path, 'w', encoding='utf-8') as f:
+        f.write(f"INPUT ELEMENT DEBUG - Step {step_number}\n")
+        f.write("=" * 50 + "\n")
+        f.write(f"Total input elements found: {len(all_inputs)}\n\n")
+        
+        for i, input_elem in enumerate(all_inputs):
+            try:
+                # Get all attributes
+                tag_name = await input_elem.evaluate('el => el.tagName')
+                input_type = await input_elem.get_attribute('type') or 'text'
+                name = await input_elem.get_attribute('name') or ''
+                placeholder = await input_elem.get_attribute('placeholder') or ''
+                class_name = await input_elem.get_attribute('class') or ''
+                id_attr = await input_elem.get_attribute('id') or ''
+                is_visible = await input_elem.is_visible()
+                is_enabled = await input_elem.is_enabled()
+                
+                f.write(f"Input #{i+1}:\n")
+                f.write(f"  Tag: {tag_name}\n")
+                f.write(f"  Type: {input_type}\n") 
+                f.write(f"  Name: {name}\n")
+                f.write(f"  Placeholder: {placeholder}\n")
+                f.write(f"  Class: {class_name}\n")
+                f.write(f"  ID: {id_attr}\n")
+                f.write(f"  Visible: {is_visible}\n")
+                f.write(f"  Enabled: {is_enabled}\n")
+                f.write("-" * 30 + "\n")
+            except Exception as e:
+                f.write(f"Input #{i+1}: Error getting details - {e}\n")
+    
+    print(f"🔍 Input debug saved: {input_debug_path}")
+    
+    ########################################################
+    # END DEBUG LOGGING
+    ########################################################
+
+    compressed = compress_dom(await page.content(), goal)
     skeleton = create_dom_skeleton(compressed)
     signature = page_signature(compressed)  # Use compressed DOM for signature
     elements = summarize_interactive_elements(compressed)
     scored_elements = score_interactive_elements(elements, goal)
     
     return PageContext(
-        url=url,
-        title=title,
+        url=await page.evaluate("location.href"),
+        title=await page.title(),
         raw_dom=compressed,  # Store compressed version
         skeleton=skeleton,
         signature=signature,
-        interactive=scored_elements
+        interactive=scored_elements,
+        step_number=step_number,
+        total_steps=total_steps,
+        overall_goal=goal,
+        # Enhanced context fields
+        current_step=step_number,
+        total_steps_planned=total_steps,
+        recent_events=recent_events or [],
+        previous_dom_signature=previous_dom_signature,
+        dom_signature=signature,  # Alias for consistency
+        lattice_state=lattice_state
+    )
+
+
+def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "", 
+                           step_number: int = 1, total_steps: int = 1, 
+                           overall_goal: str = "", recent_events: List[Dict] = None,
+                           previous_signature: str = "", lattice_state: Dict = None) -> PageContext:
+    """
+    Synchronous wrapper for create_page_context that matches the old calling signature.
+    This processes raw DOM text instead of requiring a page object.
+    """
+    from datetime import datetime
+    
+    ########################################################
+    # TODO: REMOVE DEBUG LOGGING BEFORE PRODUCTION
+    ########################################################
+    
+    print(f"🔍 DOM DEBUG: Starting page context creation for URL: {url[:100]}...")
+    print(f"🔍 DOM DEBUG: Goal: {goal}")
+    print(f"🔍 DOM DEBUG: Raw DOM length: {len(raw_dom)} characters")
+    
+    # Process DOM to find interactive elements
+    compressed = compress_dom(raw_dom, goal)
+    signature = page_signature(raw_dom)
+    skeleton = create_dom_skeleton(compressed)
+    elements = summarize_interactive_elements(raw_dom)
+    scored_elements = score_interactive_elements(elements, goal)
+    
+    # Debug all input elements found
+    print(f"\n🔍 DOM DEBUG: Found {len(elements)} total interactive elements")
+    input_elements = [elem for elem in elements if elem.tag in ['input', 'textarea']]
+    print(f"🔍 DOM DEBUG: Found {len(input_elements)} input/textarea elements:")
+    
+    for i, elem in enumerate(input_elements):
+        input_type = elem.attrs.get('type', 'text')
+        placeholder = elem.attrs.get('placeholder', '')
+        name = elem.attrs.get('name', '')
+        id_val = elem.attrs.get('id', '')
+        print(f"  {i+1}. <{elem.tag}> type='{input_type}' id='{id_val}' name='{name}' placeholder='{placeholder}' text='{elem.text[:50]}'")
+    
+    # Debug scoring results
+    print(f"\n🔍 DOM DEBUG: After scoring, {len(scored_elements)} elements made the cut:")
+    scored_inputs = [elem for elem in scored_elements if elem.tag in ['input', 'textarea']]
+    print(f"🔍 DOM DEBUG: {len(scored_inputs)} input/textarea elements in scored results:")
+    
+    for i, elem in enumerate(scored_inputs):
+        input_type = elem.attrs.get('type', 'text')
+        placeholder = elem.attrs.get('placeholder', '')
+        print(f"  {i+1}. <{elem.tag}> type='{input_type}' placeholder='{placeholder}' score={getattr(elem, 'score', 'N/A')}")
+    
+    # Save debug output
+    debug_file = f"debug_prompts/dom_debug_step{step_number}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.txt"
+    with open(debug_file, 'w', encoding='utf-8') as f:
+        f.write(f"DOM Debug Report - Step {step_number}\n")
+        f.write(f"={'='*50}\n\n")
+        f.write(f"URL: {url}\n")
+        f.write(f"Goal: {goal}\n")
+        f.write(f"Raw DOM Length: {len(raw_dom)} chars\n\n")
+        
+        f.write(f"All Interactive Elements ({len(elements)}):\n")
+        f.write("-" * 30 + "\n")
+        for i, elem in enumerate(elements):
+            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}'\n")
+        
+        f.write(f"\nInput/Textarea Elements ({len(input_elements)}):\n")
+        f.write("-" * 30 + "\n")
+        for i, elem in enumerate(input_elements):
+            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}'\n")
+        
+        f.write(f"\nScored Elements ({len(scored_elements)}):\n")
+        f.write("-" * 30 + "\n")
+        for i, elem in enumerate(scored_elements):
+            score = getattr(elem, 'score', 'N/A')
+            f.write(f"{i+1:3d}. <{elem.tag}> score={score} {elem.attrs} text='{elem.text[:100]}'\n")
+    
+    print(f"🔍 DOM DEBUG: Full debug report saved: {debug_file}")
+    
+    ########################################################
+    
+    return PageContext(
+        url=url,
+        title=title or "Untitled",
+        raw_dom=compressed,  # Store compressed version
+        skeleton=skeleton,
+        signature=signature,
+        interactive=scored_elements,
+        step_number=step_number,
+        total_steps=total_steps,
+        overall_goal=overall_goal or goal,
+        # Enhanced context fields
+        current_step=step_number,
+        total_steps_planned=total_steps,
+        recent_events=recent_events or [],
+        previous_dom_signature=previous_signature,
+        dom_signature=signature,  # Alias for consistency
+        lattice_state=lattice_state
     )
