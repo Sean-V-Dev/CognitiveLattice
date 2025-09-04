@@ -40,6 +40,7 @@ class SimpleWebAgent:
             max_steps = 10  # Safety limit
             step_number = 0
             recent_actions = []
+            breadcrumbs = []  # Track plain English progress
             
             while step_number < max_steps:
                 step_number += 1
@@ -77,7 +78,8 @@ class SimpleWebAgent:
                 goal=goal + verification_clause,
                 ctx=ctx,
                 mode="autonomous",
-                recent_actions=recent_actions
+                recent_actions=recent_actions,
+                breadcrumbs=breadcrumbs
             )
             
             # Log the step using context_packet (has session_id, step, goal)
@@ -90,6 +92,12 @@ class SimpleWebAgent:
                 "commands": [{"type": cmd.type, "selector": cmd.selector} for cmd in outcome.batch.commands],
                 "success": outcome.evidence.success
             })
+            
+            # Add breadcrumb if available
+            if hasattr(outcome, 'breadcrumb') and outcome.breadcrumb:
+                breadcrumbs.append(f"Step {step_number}: {outcome.breadcrumb}")
+                # Keep only last 5 breadcrumbs to avoid prompt bloat
+                breadcrumbs = breadcrumbs[-5:]
             
             # Check if task completed or needs human intervention
             if not outcome.evidence.success:
@@ -127,7 +135,8 @@ class SimpleWebAgent:
                                  overall_goal: str = None,
                                  recent_events: List[Dict[str, Any]] = None,
                                  previous_signature: str = None,
-                                 lattice_state: Dict[str, Any] = None) -> Dict[str, Any]:
+                                 lattice_state: Dict[str, Any] = None,
+                                 breadcrumbs: List[str] = None) -> Dict[str, Any]:
         """
         Execute a single step of a planned automation sequence.
         Returns step result without looping - designed for step-by-step execution.
@@ -177,7 +186,8 @@ class SimpleWebAgent:
                 goal=step_goal + verification_clause,
                 ctx=ctx,
                 mode="autonomous",
-                recent_actions=[]  # Fresh start for each planned step
+                recent_actions=[],  # Fresh start for each planned step
+                breadcrumbs=breadcrumbs or []
             )
             
             # Log the step
@@ -247,7 +257,8 @@ class SimpleWebAgent:
                 "step_goal": step_goal,
                 "rationale": outcome.rationale,
                 "confidence": outcome.confidence,
-                "page_signature": outcome.evidence.dom_after_sig
+                "page_signature": outcome.evidence.dom_after_sig,
+                "breadcrumb": getattr(outcome, 'breadcrumb', None)  # Include breadcrumb for coordinator
             }
             
         except Exception as e:

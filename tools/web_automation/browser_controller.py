@@ -24,6 +24,21 @@ class BrowserController:
     async def get_current_dom(self) -> Tuple[str, str]:
         if not self._engine.page:
             raise RuntimeError("Browser not initialized")
+        
+        # Wait for dynamic content to load (3 seconds max)
+        try:
+            await self._engine.page.wait_for_selector('[data-qa-group-name]', timeout=3000)  # 3s for bowl elements
+        except:
+            # If selector not found, continue anyway (don't fail the whole operation)
+            pass
+        
+        # Wait for network to be idle (3 seconds max)
+        try:
+            await self._engine.page.wait_for_load_state('networkidle', timeout=3000)  # 3s for AJAX completion
+        except:
+            # If network doesn't settle, continue anyway
+            pass
+        
         html = await self._engine.page.content()
         title = await self._engine.page.title()
         return html, title

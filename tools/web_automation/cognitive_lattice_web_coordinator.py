@@ -184,12 +184,15 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                     query=primary_goal,
                     task_plan=web_steps  # Use the detailed plan instead of generic steps
                 )
+                # Save lattice after creating new task
+                self.lattice.save()
                 print(f"[LATTICE] Created web task with {len(web_steps)} steps: {primary_goal}")
             
             # STEP 3: Execute each step of the plan autonomously
             print(f"🚀 Step 2: Executing {len(web_steps)} planned steps...")
             current_url = url
             successful_steps = 0
+            breadcrumbs = []  # Track plain English progress across steps
             
             # Initialize browser once for all steps
             await self.web_agent.browser.initialize()
@@ -238,7 +241,8 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                     overall_goal=primary_goal,
                     recent_events=recent_events,
                     previous_signature=previous_signature,
-                    lattice_state=lattice_state
+                    lattice_state=lattice_state,
+                    breadcrumbs=breadcrumbs
                 )
                 
                 # Check step success with enhanced logic
@@ -268,6 +272,14 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                         "dom_changed": dom_changed,
                         "result": step_result
                     })
+                    # Save lattice after each step
+                    self.lattice.save()
+                
+                # Collect breadcrumb from step result
+                if step_result and 'breadcrumb' in step_result and step_result['breadcrumb']:
+                    breadcrumbs.append(f"Step {step_num}: {step_result['breadcrumb']}")
+                    # Keep only last 5 breadcrumbs to avoid prompt bloat
+                    breadcrumbs = breadcrumbs[-5:]
                 
                 # Track successful steps
                 if success:
@@ -306,6 +318,8 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                     "success": overall_success,
                     "steps_completed": len(web_steps)
                 })
+                # Save lattice after task completion
+                self.lattice.save()
                 
                 # Mark task as completed if it was successful
                 if overall_success and hasattr(self.lattice, 'complete_current_task'):
@@ -324,6 +338,8 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                     "error": str(e),
                     "success": False
                 })
+                # Save lattice after error
+                self.lattice.save()
             
             print(f"❌ Web task execution failed: {e}")
             import traceback
@@ -341,6 +357,10 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                 "timestamp": datetime.now().isoformat()
             }
             self.lattice.add_event(event)
+            # Save lattice after status updates (but less frequently)
+            # Only save on important status messages to avoid too many writes
+            if any(keyword in message.lower() for keyword in ["completed", "failed", "error", "success"]):
+                self.lattice.save()
     
     def _confirm_callback(self, reasons: List[str], summary: Dict[str, Any]) -> bool:
         """Handle confirmation requests from safety manager."""

@@ -59,6 +59,7 @@ class StepOutcome:
     evidence: Evidence
     confidence: float
     rationale: str
+    breadcrumb: str = ""  # Plain English note about what was accomplished
 
 
 class StepExecutor:
@@ -76,6 +77,7 @@ class StepExecutor:
         ctx: PageContext,
         mode: str = "autonomous",
         recent_actions: Optional[List[Dict[str, Any]]] = None,
+        breadcrumbs: Optional[List[str]] = None,
     ) -> StepOutcome:
         """
         1) Build prompt from PageContext
@@ -85,7 +87,7 @@ class StepExecutor:
         5) Return Evidence (+ confidence/rationale)
         """
         # 1) Build prompt
-        prompt = build_reasoning_prompt(goal, ctx, recent_actions or [])
+        prompt = build_reasoning_prompt(goal, ctx, recent_actions or [], breadcrumbs or [])
         
         # ############################################################################# 
         # DEBUG: Save prompt to file for troubleshooting
@@ -194,7 +196,7 @@ class StepExecutor:
                 "rationale": f"API error: {str(e)}"
             }
         
-        commands, confidence, rationale = self._parse_llm_json(raw)
+        commands, confidence, rationale, breadcrumb = self._parse_llm_json(raw)
         batch = CommandBatch(commands=commands)
 
         # Safety pre-check (optional)
@@ -217,7 +219,7 @@ class StepExecutor:
                     timing_ms=0,
                     errors=[],
                 )
-                return StepOutcome(batch=batch, evidence=empty_ev, confidence=confidence, rationale=rationale)
+                return StepOutcome(batch=batch, evidence=empty_ev, confidence=confidence, rationale=rationale, breadcrumb=breadcrumb)
 
         # 4) Execute batch with fallback logic
         evidence = await self._execute_with_fallbacks(batch, goal, ctx, recent_actions)
@@ -230,7 +232,7 @@ class StepExecutor:
             except Exception:
                 pass
 
-        return StepOutcome(batch=batch, evidence=evidence, confidence=confidence, rationale=rationale)
+        return StepOutcome(batch=batch, evidence=evidence, confidence=confidence, rationale=rationale, breadcrumb=breadcrumb)
 
     async def _execute_with_fallbacks(
         self, 
@@ -357,7 +359,7 @@ class StepExecutor:
             except Exception as debug_error:
                 print(f"⚠️ DEBUG: Failed to save fallback debug files: {debug_error}")
             
-            commands, confidence, rationale = self._parse_llm_json(raw_response)
+            commands, confidence, rationale, breadcrumb = self._parse_llm_json(raw_response)
             
             print(f"🔍 FALLBACK DEBUG: Parsed {len(commands)} commands from LLM response")
             for i, cmd in enumerate(commands):
@@ -443,8 +445,8 @@ class StepExecutor:
     # -----------------
     # Helpers
     # -----------------
-    def _parse_llm_json(self, obj: Any) -> Tuple[List[Command], float, str]:
-        """Leniently coerce the LLM response to (commands, confidence, rationale)."""
+    def _parse_llm_json(self, obj: Any) -> Tuple[List[Command], float, str, str]:
+        """Leniently coerce the LLM response to (commands, confidence, rationale, breadcrumb)."""
         # If the LLM returned a string, try json.loads
         if isinstance(obj, str):
             # First, try to extract JSON from markdown code blocks
@@ -530,7 +532,8 @@ class StepExecutor:
             confidence = 0.5
 
         rationale = obj.get("rationale") or ""
-        return cmd_list[:3], confidence, rationale
+        breadcrumb = obj.get("breadcrumb") or ""
+        return cmd_list[:3], confidence, rationale, breadcrumb
 
     def _looks_like_search_field(self, command_item: dict) -> bool:
         """Detect if a type command is targeting a search field that would benefit from auto-Enter."""

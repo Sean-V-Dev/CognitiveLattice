@@ -69,6 +69,42 @@ def page_signature(raw_dom: str) -> str:
     return hashlib.sha256(raw_dom.encode("utf-8")).hexdigest()[:16]
 
 
+def _extract_meaningful_text(raw_text: str, attrs: Dict[str, Any]) -> str:
+    """Extract meaningful text from element, falling back to data attributes if text is empty."""
+    # Start with the raw inner text
+    text = _norm_text(raw_text)
+    
+    # If text is empty or too short, try to extract from data attributes
+    if not text or len(text.strip()) < 2:
+        # Try common data attributes that might contain meaningful text
+        data_attrs_to_check = [
+            'data-qa-group-name',     # Chipotle menu groups
+            'data-qa-name',           # QA test names
+            'data-qa-item-name',      # QA Item names
+            'data-qa-title',          # QA titles
+            'data-qa-label',          # QA labels
+            'data-label',             # Generic labels
+            'data-title',             # Generic titles
+            'data-name',              # Generic names
+            'data-text',              # Generic text
+            'data-value',             # Generic values
+            'data-button-value',      # Button values
+            'data-menu-name',         # Menu names
+            'data-category',          # Categories
+            'data-item-name'          # Generic item names
+        ]
+        
+        for attr_name in data_attrs_to_check:
+            if attr_name in attrs and attrs[attr_name]:
+                extracted = str(attrs[attr_name]).strip()
+                if extracted and len(extracted) > 1:
+                    # Clean up the extracted text
+                    text = _norm_text(extracted)
+                    break
+    
+    return text
+
+
 def _norm_text(t: str) -> str:
     """Normalize text for processing."""
     t = re.sub(r"\s+", " ", (t or "")).strip()
@@ -76,12 +112,21 @@ def _norm_text(t: str) -> str:
 
 
 def _extract_attrs(attr_str: str) -> Dict[str, str]:
-    """Simple attribute parser; resilient to odd markup."""
+    """Enhanced attribute parser that handles complex nested structures."""
     attrs = {}
+    
+    # Original regex patterns
     for m in re.finditer(r'(\w[\w:-]*)\s*=\s*"([^"]*)"', attr_str or ""):
         attrs[m.group(1).lower()] = m.group(2)
     for m in re.finditer(r"(\w[\w:-]*)\s*=\s*'([^']*)'", attr_str or ""):
         attrs[m.group(1).lower()] = m.group(2)
+    
+    # ENHANCED: Look for data-qa-item-name specifically in the entire HTML chunk
+    if 'data-qa-item-name' not in attrs:
+        qa_match = re.search(r'data-qa-item-name="([^"]*)"', attr_str or "", re.I)
+        if qa_match:
+            attrs['data-qa-item-name'] = qa_match.group(1)
+    
     return attrs
 
 
@@ -134,7 +179,15 @@ def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str
 
 def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     """Determine if a div/span is likely clickable based on attributes and content."""
-    # Priority 1: Location/store containers with identifying attributes
+    # Priority 1: Menu items with data attributes (e.g., Chipotle menu categories)
+    menu_attrs = [
+        "data-qa-group-name", "data-menu-item", "data-menu-category",
+        "data-item-name", "data-category", "data-meal-type"
+    ]
+    if any(attrs.get(attr) for attr in menu_attrs):
+        return True
+        
+    # Priority 2: Location/store containers with identifying attributes
     location_attrs = [
         "data-qa-restaurant-id", "data-store-id", "data-location-id", 
         "data-shop-id", "data-venue-id", "data-place-id"
@@ -142,7 +195,7 @@ def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     if any(attrs.get(attr) for attr in location_attrs):
         return True
         
-    # Priority 2: Check for explicit click indicators
+    # Priority 3: Check for explicit click indicators
     if attrs.get("onclick"): return True
     if attrs.get("role") in ["button", "link", "tab", "menuitem"]: return True
     if "tabindex" in attrs and attrs["tabindex"] != "-1": return True
@@ -155,10 +208,12 @@ def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
         attrs.get("aria-label", "").lower()
     ])
     
-    # Strong indicators this is a navigation/location element
+    # Strong indicators this is a navigation/location element OR menu item
     navigation_keywords = [
         "find", "locate", "location", "store", "shop", "order", 
-        "menu", "navigation", "nav", "click", "button", "link"
+        "menu", "navigation", "nav", "click", "button", "link",
+        "bowl", "burrito", "taco", "salad", "quesadilla", "food",
+        "meal", "item", "build", "custom", "lifestyle"
     ]
     
     # Special boost for obvious location finder elements
@@ -201,13 +256,20 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
     for m in pattern.finditer(html or ""):
         tag = m.group(1).lower()
         attrs = _extract_attrs(m.group(2))
-        text = _norm_text(re.sub(r"<[^>]+>", " ", m.group(3)))
+        raw_text = re.sub(r"<[^>]+>", " ", m.group(3))
+        text = _extract_meaningful_text(raw_text, attrs)
         selectors = _candidate_selectors(tag, attrs, text)
+        
+        # Include relevant attributes and any data-* attributes
+        relevant_attrs = ["id", "class", "name", "role", "aria-label", "placeholder", "href", "onclick", "data-testid", "tabindex"]
+        for k in attrs.keys():
+            if k.startswith("data-"):
+                relevant_attrs.append(k)
         
         elements.append(Element(
             tag=tag,
             text=text,
-            attrs={k: attrs.get(k, "") for k in ["id","class","name","role","aria-label","placeholder","href","onclick","data-testid","tabindex"]},
+            attrs={k: attrs.get(k, "") for k in relevant_attrs},
             selectors=selectors
         ))
 
@@ -229,14 +291,22 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
     for m in interactive_div_pattern.finditer(html or ""):
         tag = m.group(1).lower()
         attrs = _extract_attrs(m.group(2))
-        text = _norm_text(re.sub(r"<[^>]+>", " ", m.group(3)))
+        raw_text = re.sub(r"<[^>]+>", " ", m.group(3))
+        text = _extract_meaningful_text(raw_text, attrs)
         
         if is_clickable_div(attrs, text):
             selectors = _candidate_selectors(tag, attrs, text)
+            
+            # Include relevant attributes and any data-* attributes
+            relevant_attrs = ["id", "class", "name", "role", "aria-label", "onclick", "data-testid", "tabindex"]
+            for k in attrs.keys():
+                if k.startswith("data-"):
+                    relevant_attrs.append(k)
+            
             elements.append(Element(
                 tag=tag,
                 text=text,
-                attrs={k: attrs.get(k, "") for k in ["id","class","name","role","aria-label","onclick","data-testid","tabindex"]},
+                attrs={k: attrs.get(k, "") for k in relevant_attrs},
                 selectors=selectors
             ))
 
@@ -280,13 +350,13 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
         all_text = " ".join([text, placeholder, aria, name, href, classes])
         for kw in KEYWORD_BOOST:
             if kw in all_text: 
-                score += 0.8
+                score += 0.8  # Increased from 0.6 like old system
         
-        # Extra boost for primary action indicators
+        # Extra boost for primary action indicators (matching old system)
         primary_actions = ["order now", "buy now", "get started", "begin", "add to cart", "checkout", "start", "shop now"]
         for action in primary_actions:
             if action in all_text: 
-                score += 1.2
+                score += 1.2  # Strong boost for primary actions
         
         # Modal dismissal keywords
         modal_keywords = ["accept", "agree", "continue", "close", "got it", "dismiss", "ok"]
@@ -352,7 +422,157 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
         if "btn" in classes or "button" in classes: 
             score += 0.5
 
+        # COMPOUND SCORING: Extract goal keywords and apply massive boosts
+        goal_keywords = []
+        goal_words = goal_lower.split()
+        
+        # Extract meaningful words from goal (skip common words)
+        skip_words = {'the', 'a', 'an', 'to', 'for', 'of', 'in', 'on', 'at', 'by', 'with', 'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'over', 'under', 'between', 'among', 'through', 'during', 'before', 'after', 'above', 'below', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'must', 'shall', 'and', 'or', 'but', 'nor', 'so', 'yet', 'as', 'if', 'then', 'than', 'when', 'where', 'while', 'how', 'why', 'what', 'which', 'who', 'whom', 'whose', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'mine', 'yours', 'his', 'hers', 'ours', 'theirs', 'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves', 'yourselves', 'themselves'}
+        
+        # ALSO skip action/instruction words that shouldn't match menu items
+        action_words = {'select', 'choose', 'pick', 'click', 'build', 'your', 'own', 'option', 'as', 'type', 'order', 'get', 'go', 'find', 'then', 'me'}
+        
+        # Separate high-priority target words from action words
+        target_keywords = []  
+        general_keywords = []  # Action words, modifiers
+        
+        for word in goal_words:
+            clean_word = word.strip('.,!?;:"()[]{}').lower()
+            if len(clean_word) >= 2 and clean_word not in skip_words:
+                if clean_word in action_words:
+                    general_keywords.append(clean_word)
+                else:
+                    target_keywords.append(clean_word)
+        
+        # Count matches with different weights
+        target_matches = sum(1 for kw in target_keywords if kw in text)
+        general_matches = sum(1 for kw in general_keywords if kw in text)
+        
+        # Apply weighted compound boosts
+        total_boost = 0
+        if target_matches > 0:
+            # TARGET WORDS get massive boost (food items, proteins, etc.)
+            target_boost = target_matches * 3.0  # 3.0 per target word (was 1.5)
+            total_boost += target_boost
+            
+        if general_matches > 0:
+            # GENERAL/ACTION WORDS get smaller boost
+            general_boost = general_matches * 0.5  # 0.5 per action word (much less)
+            total_boost += general_boost
+        
+        # Apply weighted compound boosts
+        total_boost = 0
+        if target_matches > 0:
+            # TARGET WORDS get massive boost (food items, proteins, etc.)
+            target_boost = target_matches * 3.0  # 3.0 per target word (was 1.5)
+            total_boost += target_boost
+            
+        if general_matches > 0:
+            # GENERAL/ACTION WORDS get smaller boost
+            general_boost = general_matches * 0.5  # 0.5 per action word (much less)
+            total_boost += general_boost
+        
+        # Apply compound boosts based on total matches + high-value attributes
+        if total_boost > 0:
+            # MASSIVE compound boost if element has BOTH goal keywords AND high-value data attributes
+            high_value_attrs = ['data-qa-group-name', 'data-menu-item', 'data-item-name', 'data-testid', 'data-track']
+            has_high_value_attr = any(attr_name in attrs for attr_name in high_value_attrs)
+            
+            if has_high_value_attr:
+                compound_boost = total_boost * 3.0  # Triple the boost for high-value attributes
+                score += compound_boost
+                # Debug logging for compound boosts
+                #print(f"🎯 COMPOUND BOOST: '{text}' got +{compound_boost:.1f} (target: {target_matches}, general: {general_matches}, high-value attrs: {has_high_value_attr})")
+            else:
+                score += total_boost
+                # Debug logging for keyword-only boosts  
+                #print(f"🔍 KEYWORD BOOST: '{text}' got +{total_boost:.1f} (target: {target_matches}, general: {general_matches})")
+
         element.score = max(0.0, score)  # Ensure non-negative
+    
+    # GOAL-AWARE POST-PROCESSING: Apply additional goal-specific boosts and re-sort
+    goal_lower = goal.lower()
+    print(f"🎯 Goal-aware processing for: '{goal}'")
+    
+    # Menu selection goals (like "Select 'Bowl'")
+    has_select_keyword = any(keyword in goal_lower for keyword in ["select", "choose", "pick"])
+    has_food_keyword = any(food_type in goal_lower for food_type in ["bowl", "burrito", "taco", "salad", "quesadilla"])
+    print(f"🎯 Has select keyword: {has_select_keyword}, Has food keyword: {has_food_keyword}")
+    
+    if has_select_keyword and has_food_keyword:
+        print(f"🍽️ DETECTED MENU SELECTION GOAL!")
+        menu_boosted = 0
+        for element in elements:
+            text = element.text.lower()
+            attrs = element.attrs
+            classes = _safe_get_class_string(attrs).lower()
+            
+            # Extract the specific food item from goal (e.g., "bowl" from "Select 'Bowl'")
+            goal_food_items = []
+            for food_type in ["bowl", "burrito", "taco", "salad", "quesadilla", "chips", "drink", "kids meal"]:
+                if food_type in goal_lower:
+                    goal_food_items.append(food_type)
+            
+            print(f"🍽️ Goal food items: {goal_food_items}")
+            
+            # MASSIVE boost for exact menu item matches
+            for food_item in goal_food_items:
+                if food_item in text or f"{food_item}" in text:
+                    original_score = element.score
+                    element.score = original_score + 6.0  # Massive boost for menu items
+                    menu_boosted += 1
+                    print(f"🍽️ MENU BOOST: '{element.text}' got +6.0 for '{food_item}' match")
+            
+            # Additional boost for menu-related classes/attributes
+            menu_indicators = ["menu", "top-level-menu", "meal", "item", "card"]
+            if any(indicator in classes for indicator in menu_indicators) and any(food_item in text for food_item in goal_food_items):
+                element.score += 2.0  # Additional boost for menu containers
+                menu_boosted += 1
+        
+        if menu_boosted > 0:
+            print(f"🍽️ Menu goal detected: Boosted {menu_boosted} menu elements")
+            # Re-sort after boosting scores
+            elements.sort(key=lambda x: x.score, reverse=True)
+    
+    # Location selection goals
+    elif any(keyword in goal_lower for keyword in ["select", "choose", "pick", "nearest"]) and \
+         any(keyword in goal_lower for keyword in ["location", "restaurant", "store"]):
+        location_boosted = 0
+        for element in elements:
+            text = element.text.lower()
+            attrs = element.attrs
+            classes = _safe_get_class_string(attrs).lower()
+            
+            # PRIORITY 1: Boost location/store container elements (most clickable)
+            location_attrs = [
+                "data-qa-restaurant-id", "data-store-id", "data-location-id", 
+                "data-shop-id", "data-venue-id", "data-place-id"
+            ]
+            
+            has_location_attr = any(attrs.get(attr) for attr in location_attrs)
+            has_location_class = any(container_class in classes 
+                                   for container_class in ['restaurant-address-item', 'location-item', 
+                                                          'store-item', 'store-card', 'location-card', 'venue-item'])
+            
+            if has_location_attr or has_location_class:
+                original_score = element.score
+                element.score = original_score + 8.0  # Highest boost for containers
+                location_boosted += 1
+            
+            # PRIORITY 2: Boost location/address elements (for context, but lower than containers)
+            elif (element.attrs.get("role") == "definition" and 
+                  any(loc_word in text for loc_word in ['near', 'mile', 'mi', 'km', 'street', 'road', 'avenue', 'boulevard', 'drive', 'lane', 'way'])) or \
+                 any(loc_class in classes for loc_class in ['address', 'location', 'result', 'store', 'restaurant']) or \
+                 any(distance in text for distance in ['mile', 'mi', 'km', 'away']):
+                
+                original_score = element.score
+                element.score = original_score + 4.0  # Lower boost for text elements
+                location_boosted += 1
+        
+        if location_boosted > 0:
+            #print(f"🎯 Location goal detected: Boosted {location_boosted} location elements")
+            # Re-sort after boosting scores
+            elements.sort(key=lambda x: x.score, reverse=True)
     
     # Sort by score (highest first) and limit to max items
     ranked = sorted(elements, key=lambda e: e.score, reverse=True)

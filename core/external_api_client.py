@@ -149,7 +149,7 @@ Now create the plan for: "{user_query}"
 """
 
         try:
-            model = "gpt-4o-mini" 
+            model = "gpt-4.1-mini"
             messages = [
                 {"role": "system", "content": "You are a world-class planner. CRITICAL REQUIREMENT: You MUST combine research and booking actions into single cohesive steps. NEVER separate 'research X' and 'book X' into different steps - they must be combined. You only provide consolidated plans, you do not execute them."},
                 {"role": "user", "content": prompt}
@@ -250,7 +250,7 @@ Now create the plan for: "{user_query}"
             ]
             
             payload = {
-                "model": "gpt-4o-mini",  # Using cost-effective model for simple queries
+                "model": "gpt-4.1-mini",  
                 "messages": messages,
                 "max_tokens": 1000,
                 "temperature": 0.7,

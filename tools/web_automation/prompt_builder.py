@@ -2,24 +2,52 @@ from typing import List, Dict, Any, Optional
 from .models import PageContext, CommandBatch, Command
 
 # Hard caps to keep prompts small and deterministic
-MAX_SKELETON_CHARS = 4000
-MAX_CANDIDATES = 30
+MAX_SKELETON_CHARS = 0
+MAX_CANDIDATES = 50
 MAX_SEL_PER_CANDIDATE = 3
 
 SYSTEM_INSTRUCTIONS = (
-    "You are a web-navigation planner with access to recent memory and state tracking. "
-    "Given a goal, DOM skeleton, ranked candidates, and recent context, return 1-3 JSON commands "
+    "You are an intelligent web-navigation planner with access to recent memory, state tracking, and breadcrumb context. "
+    "Given a goal, DOM skeleton, ranked candidates, and progress history, return 1-3 JSON commands "
     "that make concrete progress toward the goal. "
     
-    "MEMORY & CONTEXT: Use the recent events and state to understand what has already been done "
-    "and what the next logical step should be. Pay attention to DOM signature changes and success/failure patterns. "
+    "CONTEXTUAL AWARENESS: You have access to breadcrumb progress that shows what actions you've already completed. "
+    "Use this context to understand where you are in the workflow and what the next logical step should be. "
+    "Pay attention to DOM signature changes and success/failure patterns from recent actions. "
     
-    "CYCLE PREVENTION: If you see the same element was clicked multiple times in recent actions, "
-    "DO NOT click it again. Look for alternative approaches like different selectors, waiting for dynamic content, "
+    "SELECTION POLICY "
+    
+    "TOP-10 GATE (HARD): "
+    "- You MUST choose from the top 10 candidates unless an OVERRIDE is justified. "
+    
+    "GOAL LEXICON (derive per step): "
+    "- Extract target nouns from the goal (things to click/select), plus 2–6 common UI variants. "
+    "- Extract verbs and qualifiers (filters, ingredients, dates…). "
+    
+    "DISQUALIFIERS (reject unless explicitly requested by the goal): "
+    "- Marketing/hero/promo copy (e.g., \"limited time\", \"featured\", \"join\", \"rewards\", \"order now\"). "
+    "- Group/catering/corporate language (e.g., \"for X–Y people\", \"$ per person\"). "
+    "- Prebuilt/lifestyle/celebrity items if the goal is custom building (e.g., \"Lifestyle Bowl\", \"The ___ Bowl\"). "
+    
+    "PREFERENCES (apply within top-5): "
+    "1) GOAL-NOUN FIRST: Prefer candidates whose TEXT or ATTRIBUTES contain a target noun or its variants. "
+    "2) SEMANTIC SELECTORS over decorative containers: "
+    "   Strong: [data-*], [role], [aria-*], clear text with goal noun. "
+    "   Weak: generic containers (hero/top-level-menu/card/paragraph) or empty text. "
+    "3) STEP-COST: Prefer the option most likely to land on the next expected state with the fewest steps. "
+    "4) DE-LOOP: Do not repeat selectors that recently failed (see breadcrumbs). "
+    
+    "OVERRIDE (RARE): "
+    "- Only if no top-5 candidate matches the goal lexicon nouns OR all such matches are disqualified. "
+    "- If you override, include `override_reason` citing ≥2 concrete signals (e.g., \"no noun match in top-5; candidate has data-button + exact noun variant\"). "
+
+    "OUTPUT: "
+    "- Return 1–3 JSON commands. Each must include a `why` citing: (a) goal-noun match, (b) semantic selector evidence, (c) disqualifiers avoided. "
+    "- Include `override_reason` if outside top-5. "
+
+    "CYCLE PREVENTION: If breadcrumbs or recent actions show you've tried the same element multiple times, "
+    "DO NOT repeat that action. Look for alternative approaches: different selectors, waiting for dynamic content, "
     "or navigating to different areas of the page. "
-    
-    "SELECTOR DISCIPLINE: Prefer selectors from the ranked candidates list. Reference by candidate number when possible. "
-    "Only invent custom selectors as a last resort. "
     
     "SEARCH PATTERNS: When looking for search fields, prioritize: input[type=search], input[name*='zip'|'postal'], "
     "input[placeholder*='ZIP'|'location'], [aria-label*='search'|'location'], [role='textbox']. "
@@ -27,17 +55,14 @@ SYSTEM_INSTRUCTIONS = (
     "TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields and forms. "
     "This is the standard web pattern for Google, YouTube, location search, etc. "
     
-    "DYNAMIC CONTENT: If you click a button that should reveal content (like search forms) but don't see "
-    "the expected elements in candidates, the content may be loading. Try looking for different selectors "
-    "or consider that the click might have triggered a modal, dropdown, or navigation. "
+    "DYNAMIC CONTENT: If you click a button that should reveal content but don't see expected elements, "
+    "the content may be loading. Try different selectors or consider that the click triggered a modal/dropdown. "
     
-    "CONSTRAINTS: Do not click login/rewards/marketing unless explicitly needed for the goal. "
-    "Focus only on location search functionality. If no search field is visible, click elements "
-    "that reveal search boxes or location choosers. "
+    "CONSTRAINTS: Avoid login/rewards/marketing unless explicitly needed. Focus on the core goal. "
+    "If no relevant elements are visible, click elements that reveal the functionality you need. "
     
     "PROGRESS VERIFICATION: Use DOM signature changes as evidence of successful actions. "
-    "If signature unchanged after click, try different approach. If signature changed but expected "
-    "elements not found, look for alternative interaction patterns."
+    "If signature unchanged after action, try a different approach. Use your breadcrumb context to avoid repeating unsuccessful strategies."
 )
 
 RESPONSE_SCHEMA = {
@@ -59,7 +84,11 @@ RESPONSE_SCHEMA = {
             }
         },
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-        "rationale": {"type": "string"}
+        "rationale": {"type": "string"},
+        "breadcrumb": {
+            "type": "string", 
+            "description": "Plain English note for your future self about what you just accomplished in this step. Be brief but clear enough to understand the progress made."
+        }
     },
     "required": ["commands"],
     "additionalProperties": False
@@ -258,9 +287,10 @@ def _shape_candidates(ctx: PageContext) -> List[Dict[str, Any]]:
     return shaped
 
 
-def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dict[str, Any]] | None = None) -> str:
+def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dict[str, Any]] | None = None, breadcrumbs: List[str] | None = None) -> str:
     """Assemble a rich, context-aware planning prompt with lattice integration."""
     recent_actions = recent_actions or []
+    breadcrumbs = breadcrumbs or []
     skeleton = (ctx.skeleton or "")[:MAX_SKELETON_CHARS]
     candidates = _shape_candidates(ctx)
 
@@ -299,6 +329,12 @@ def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dic
         text = c["text"] or ""
         lines.append(f"{i}. <{c['tag']}> score={c['score']} text=\"{text}\" selectors=[{sels}]")
     
+    # Progress breadcrumbs (plain English summary)
+    if breadcrumbs:
+        lines.append("--- Progress So Far ---")
+        for breadcrumb in breadcrumbs[-5:]:  # Last 5 breadcrumbs
+            lines.append(f"✅ {breadcrumb}")
+    
     # Legacy recent actions (if any)
     if recent_actions:
         lines.append("--- Legacy Recent Actions ---")
@@ -324,10 +360,14 @@ def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dic
                  "{\n"
                  '  "commands": [{"type": "type", "selector": "input[name=search]", "text": "45305"}, {"type": "press", "key": "Enter"}],\n'
                  '  "confidence": 0.8,\n'
-                 '  "rationale": "Found search input from candidate #3, typing ZIP and pressing Enter per web standard"\n'
+                 '  "rationale": "Found search input from candidate #3, typing ZIP and pressing Enter per web standard",\n'
+                 '  "breadcrumb": "Entered ZIP code 45305 into location search field"\n'
                  "}\n"
-                 "SELECTOR DISCIPLINE: Use selectors from ranked candidates above (reference by number).\n"
+                 "INTELLIGENT SELECTION: Don't j.\n"
                  "TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields.\n"
+                 "BREADCRUMB: Write a brief note for your future self about what you just accomplished. "
+                 "Keep it simple: 'Selected Burrito Bowl', 'Added chicken protein', 'Entered ZIP 45305', etc. "
+                 "This helps maintain context across the ordering workflow.\n"
                  "Limit commands to 1–3. Do not include any text outside the JSON.")
     
     return "\n\n".join(lines)
