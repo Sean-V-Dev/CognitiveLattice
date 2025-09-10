@@ -11,6 +11,13 @@ from datetime import datetime
 from utils.dom_skeleton import create_dom_skeleton
 from .models import Element, PageContext
 
+# lxml for faster, more precise HTML parsing
+try:
+    from lxml import html
+    HAS_LXML = True
+except ImportError:
+    HAS_LXML = False
+
 # Debug flag - set WEB_AGENT_DEBUG=1 to enable debug outputs
 DEBUG = bool(int(os.getenv("WEB_AGENT_DEBUG", "0")))
 
@@ -70,39 +77,72 @@ def page_signature(raw_dom: str) -> str:
 
 
 def _extract_meaningful_text(raw_text: str, attrs: Dict[str, Any]) -> str:
-    """Extract meaningful text from element, falling back to data attributes if text is empty."""
-    # Start with the raw inner text
+    """Extract meaningful text from element, prioritizing data attributes over comprehensive text."""
+    
+    # PRIORITY 1: Try data attributes first (these are usually clean and specific)
+    data_attrs_to_check = [
+        'data-qa-item-name',      # QA Item names (highest priority for menu items)
+        'data-qa-group-name',     # Chipotle menu groups
+        'data-qa-name',           # QA test names
+        'data-qa-title',          # QA titles
+        'data-qa-label',          # QA labels
+        'data-item-name',         # Generic item names
+        'data-label',             # Generic labels
+        'data-title',             # Generic titles
+        'data-name',              # Generic names
+        'data-text',              # Generic text
+        'data-value',             # Generic values
+        'data-button-value',      # Button values
+        'data-menu-name',         # Menu names
+        'data-category',          # Categories
+    ]
+    
+    for attr_name in data_attrs_to_check:
+        if attr_name in attrs and attrs[attr_name]:
+            extracted = str(attrs[attr_name]).strip()
+            if extracted and len(extracted) > 1:
+                # Clean up the extracted text
+                return _norm_text(extracted)
+    
+    # PRIORITY 2: If raw text is short and clean, use it
     text = _norm_text(raw_text)
+    if text and len(text.strip()) >= 2 and len(text.strip()) <= 50:
+        # Check if text looks clean (no excessive punctuation or complex content)
+        clean_ratio = len([c for c in text if c.isalnum() or c.isspace()]) / len(text)
+        has_price_markers = any(marker in text for marker in ['$', '£', '€', '¥', 'cal', 'kcal'])
+        if clean_ratio > 0.7 and not has_price_markers:
+            return text
     
-    # If text is empty or too short, try to extract from data attributes
-    if not text or len(text.strip()) < 2:
-        # Try common data attributes that might contain meaningful text
-        data_attrs_to_check = [
-            'data-qa-group-name',     # Chipotle menu groups
-            'data-qa-name',           # QA test names
-            'data-qa-item-name',      # QA Item names
-            'data-qa-title',          # QA titles
-            'data-qa-label',          # QA labels
-            'data-label',             # Generic labels
-            'data-title',             # Generic titles
-            'data-name',              # Generic names
-            'data-text',              # Generic text
-            'data-value',             # Generic values
-            'data-button-value',      # Button values
-            'data-menu-name',         # Menu names
-            'data-category',          # Categories
-            'data-item-name'          # Generic item names
-        ]
-        
-        for attr_name in data_attrs_to_check:
-            if attr_name in attrs and attrs[attr_name]:
-                extracted = str(attrs[attr_name]).strip()
-                if extracted and len(extracted) > 1:
-                    # Clean up the extracted text
-                    text = _norm_text(extracted)
-                    break
+    # PRIORITY 3: Try to extract just the first meaningful part of longer text
+    if text and len(text.strip()) > 50:
+        # Try to get the first sentence or phrase before common delimiters
+        first_part = text.split('.')[0].split('$')[0].split('\n')[0].strip()
+        if 2 <= len(first_part) <= 30:
+            return _norm_text(first_part)
     
-    return text
+    # PRIORITY 4: For messy text without data attributes, try to extract the first few words
+    if text and len(text.strip()) > 20:  # Lower threshold to catch more cases
+        # Look for the first 1-3 words that look like menu items
+        words = text.split()
+        if len(words) >= 2:
+            # Try combinations of first few words
+            for word_count in [2, 3, 1]:
+                if word_count <= len(words):
+                    candidate = ' '.join(words[:word_count])
+                    # Check if this looks like a reasonable menu item name
+                    if (2 <= len(candidate) <= 30 and 
+                        not any(char in candidate for char in ['$', '℃', '%', 'cal']) and
+                        not candidate.lower().startswith(('add', 'build', 'custom', 'order'))):
+                        return _norm_text(candidate)
+    
+    # PRIORITY 5: Fallback to original text if nothing else works
+    if text and len(text.strip()) > 20:
+        # Remove common noise like prices, calories, etc.
+        cleaned = re.sub(r'[\$\€\£¥]?\d+\.?\d*|\d+cal|kcal|extra.*|add.*', '', text, flags=re.I).strip()
+        cleaned = re.sub(r'\s+', ' ', cleaned)  # Collapse spaces
+        if 2 <= len(cleaned) <= 30:
+            return cleaned
+    return text if text else ""
 
 
 def _norm_text(t: str) -> str:
@@ -131,7 +171,7 @@ def _extract_attrs(attr_str: str) -> Dict[str, str]:
 
 
 def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str]:
-    """Generate candidate selectors for an element, with primary selector first."""
+    """Generate candidate selectors for an element, prioritizing unique selectors first."""
     
     def esc(v: str, lim: int = 24) -> str:
         """Escape and limit text for safe selector usage."""
@@ -139,19 +179,37 @@ def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str
         return v
     
     sels = []
+    
+    # PRIORITY 1: Chipotle/QA-specific data attributes (most unique)
+    if attrs.get("data-qa-item-name"):
+        sels.append(f"{tag}[data-qa-item-name=\"{esc(attrs['data-qa-item-name'])}\"]")
+    elif attrs.get("data-qa-group-name"):
+        sels.append(f"{tag}[data-qa-group-name=\"{esc(attrs['data-qa-group-name'])}\"]")
+    elif attrs.get("data-testid"):
+        sels.append(f"{tag}[data-testid=\"{esc(attrs['data-testid'])}\"]")
+    elif attrs.get("data-qa-name"):
+        sels.append(f"{tag}[data-qa-name=\"{esc(attrs['data-qa-name'])}\"]")
+    
+    # PRIORITY 2: ID (highly unique)
     if attrs.get("id"):
         sels.append(f"#{attrs['id']}")
+    
+    # PRIORITY 3: Classes
     classes = _safe_get_class_string(attrs).strip()
     if classes:
         # take up to first two classes to keep selectors short
         cls = ".".join(c for c in classes.split()[:2])
         if cls:
             sels.append(f"{tag}.{cls}")
+    
+    # PRIORITY 4: Role-based selectors
     role = attrs.get("role")
     if role:
         sels.append(f"[role=\"{esc(role, 32)}\"]")
         if text:
             sels.append(f"[role=\"{esc(role, 32)}\"]:has-text(\"{esc(text, 48)}\")")
+    
+    # PRIORITY 5: Other attributes
     aria = attrs.get("aria-label")
     if aria:
         sels.append(f"[aria-label*=\"{esc(aria)}\"]")
@@ -164,6 +222,8 @@ def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str
     href = attrs.get("href")
     if href and tag == "a":
         sels.append(f"a[href*=\"{esc(href, 32)}\"]")
+    
+    # PRIORITY 6: Text-based selectors (fallback)
     if text:
         sels.append(f"{tag}:has-text(\"{esc(text, 48)}\")")
     
@@ -179,15 +239,23 @@ def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str
 
 def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     """Determine if a div/span is likely clickable based on attributes and content."""
-    # Priority 1: Menu items with data attributes (e.g., Chipotle menu categories)
+    # Priority 1: QA test attributes (highest priority - these are explicit markers)
+    qa_attrs = [
+        "data-qa-item-name", "data-qa-group-name", "data-qa-name",
+        "data-testid", "data-test-id"
+    ]
+    if any(attrs.get(attr) for attr in qa_attrs):
+        return True
+    
+    # Priority 2: Menu items with data attributes (e.g., Chipotle menu categories)
     menu_attrs = [
-        "data-qa-group-name", "data-menu-item", "data-menu-category",
-        "data-item-name", "data-category", "data-meal-type"
+        "data-menu-item", "data-menu-category", "data-item-name", 
+        "data-category", "data-meal-type"
     ]
     if any(attrs.get(attr) for attr in menu_attrs):
         return True
         
-    # Priority 2: Location/store containers with identifying attributes
+    # Priority 3: Location/store containers with identifying attributes
     location_attrs = [
         "data-qa-restaurant-id", "data-store-id", "data-location-id", 
         "data-shop-id", "data-venue-id", "data-place-id"
@@ -241,8 +309,106 @@ def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     return False
 
 
-def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_ITEMS) -> List[Element]:
-    """Extract interactive elements from HTML."""
+def summarize_interactive_elements(html_content: str, max_items: int = INTERACTIVE_MAX_ITEMS) -> List[Element]:
+    """Extract interactive elements from HTML using lxml (primary) or regex (fallback)."""
+    elements: List[Element] = []
+
+    if HAS_LXML:
+        try:
+            tree = html.fromstring(html_content or "")
+            
+            # 1) Traditional interactive elements (buttons, links, inputs, selects)
+            for tag_name in INTERACTIVE_TAGS:
+                # Use CSS for speed and precision
+                for elem in tree.cssselect(tag_name):
+                    attrs = dict(elem.attrib)  # Clean dict, no BS4 list issues
+                    raw_text = elem.text_content().strip() or ""  # Like BS4 get_text
+                    text = _extract_meaningful_text(raw_text, attrs)
+                    selectors = _candidate_selectors(tag_name, attrs, text)
+                    
+                    # Same relevant attrs as before
+                    relevant_attrs = [
+                        "id", "class", "name", "role", "aria-label", "placeholder", "href",
+                        "onclick", "data-testid", "tabindex"
+                    ] + [k for k in attrs.keys() if k.startswith("data-")]
+                    
+                    elements.append(Element(
+                        tag=tag_name,
+                        text=text,
+                        attrs={k: attrs.get(k, "") for k in relevant_attrs},
+                        selectors=selectors
+                    ))
+                    if len(elements) >= max_items:
+                        return elements
+
+            # 2) Interactive divs/spans (clickable heuristics)
+            # Use XPath for precision on clickable divs/spans - cast to broader approach
+            clickable_divs = tree.xpath(
+                "//div[(@onclick or @role='button' or @role='menuitem' or @tabindex != '-1' or "
+                "contains(@class, 'btn') or contains(@class, 'clickable') or contains(@class, 'card') or "
+                "contains(@data-qa, 'item') or contains(@data-qa, 'menu') or contains(@data-testid, 'location') or "
+                "@data-qa-item-name or @data-qa-group-name or @data-testid) and string-length(text()) > 1] | "  # Add text length filter
+                "//span[(@onclick or @role='button' or @role='menuitem' or @tabindex != '-1' or "
+                "contains(@class, 'btn') or contains(@class, 'clickable') or contains(@class, 'card') or "
+                "contains(@data-qa, 'item') or contains(@data-qa, 'menu') or contains(@data-testid, 'location') or "
+                "@data-qa-item-name or @data-qa-group-name or @data-testid) and string-length(text()) > 1]"
+            )
+            
+            for elem in clickable_divs:
+                attrs = dict(elem.attrib)
+                raw_text = elem.text_content().strip() or ""
+                text = _extract_meaningful_text(raw_text, attrs)
+                if is_clickable_div(attrs, text):
+                    selectors = _candidate_selectors(elem.tag, attrs, text)
+                    
+                    # Check for unique selectors and add disambiguation if needed
+                    if selectors and len(tree.cssselect(selectors[0])) > 1:
+                        # Primary selector hits multiple elements, try better unique selectors first
+                        unique_selector_found = False
+                        
+                        # Try data attributes for uniqueness first
+                        if selectors and len(tree.cssselect(selectors[0])) > 1:
+                            unique_selector_found = False
+                            
+                            # Try combining with role or aria-label for uniqueness
+                            if attrs.get('role'):
+                                role_selector = f"{selectors[0]}[role='{attrs['role']}']"
+                                if len(tree.cssselect(role_selector)) == 1:
+                                    selectors.insert(0, role_selector)
+                                    unique_selector_found = True
+                            
+                            if not unique_selector_found and attrs.get('aria-label'):
+                                aria_selector = f"{selectors[0]}[aria-label*='{esc(attrs['aria-label'][:20])}']"
+                                if len(tree.cssselect(aria_selector)) == 1:
+                                    selectors.insert(0, aria_selector)
+                                    unique_selector_found = True
+                            
+                            # nth-child as last resort, but use lxml's getpath for full XPath if needed
+                            if not unique_selector_found:
+                                xpath = tree.getpath(elem)  # Full unique XPath
+                                if xpath:
+                                    selectors.insert(0, xpath)  # Playwright supports XPath too!
+                                            
+                    relevant_attrs = [
+                        "id", "class", "name", "role", "aria-label", "onclick", "data-testid", "tabindex"
+                    ] + [k for k in attrs.keys() if k.startswith("data-")]
+                    
+                    elements.append(Element(
+                        tag=elem.tag,
+                        text=text,
+                        attrs={k: attrs.get(k, "") for k in relevant_attrs},
+                        selectors=selectors
+                    ))
+                    if len(elements) >= max_items:
+                        return elements
+
+            return elements
+            
+        except Exception as e:
+            print(f"⚠️ lxml parsing failed: {e}, falling back to regex")
+            # Fall back to regex logic below
+    
+    # FALLBACK: Regex-based extraction (original logic)
     # Traditional interactive elements (a, button, input, select)
     pattern = re.compile(r"<\s*(a|button|input|select)\b([^>]*)>(.*?)</\s*\1\s*>", re.I | re.S)
     self_closing = re.compile(r"<\s*(input)\b([^>]*)/?>", re.I)  # Only input is self-closing
@@ -250,10 +416,8 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
     # Interactive DIVs and SPANs with click handlers, roles, or navigation keywords
     interactive_div_pattern = re.compile(r"<\s*(div|span)\b([^>]*)>(.*?)</\s*\1\s*>", re.I | re.S)
     
-    elements: List[Element] = []
-
     # 1) Capture traditional interactive elements
-    for m in pattern.finditer(html or ""):
+    for m in pattern.finditer(html_content or ""):
         tag = m.group(1).lower()
         attrs = _extract_attrs(m.group(2))
         raw_text = re.sub(r"<[^>]+>", " ", m.group(3))
@@ -274,7 +438,7 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
         ))
 
     # 2) Capture self-closing elements
-    for m in self_closing.finditer(html or ""):
+    for m in self_closing.finditer(html_content or ""):
         tag = m.group(1).lower()
         attrs = _extract_attrs(m.group(2))
         text = ""  # Self-closing elements have no inner text
@@ -288,7 +452,7 @@ def summarize_interactive_elements(html: str, max_items: int = INTERACTIVE_MAX_I
         ))
 
     # 3) Capture interactive divs and spans
-    for m in interactive_div_pattern.finditer(html or ""):
+    for m in interactive_div_pattern.finditer(html_content or ""):
         tag = m.group(1).lower()
         attrs = _extract_attrs(m.group(2))
         raw_text = re.sub(r"<[^>]+>", " ", m.group(3))
@@ -437,56 +601,57 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
         general_keywords = []  # Action words, modifiers
         
         for word in goal_words:
-            clean_word = word.strip('.,!?;:"()[]{}').lower()
+            clean_word = word.strip('.,!?;:"()[]{}\'').lower()  # Added single quotes
             if len(clean_word) >= 2 and clean_word not in skip_words:
                 if clean_word in action_words:
                     general_keywords.append(clean_word)
                 else:
                     target_keywords.append(clean_word)
         
-        # Count matches with different weights
-        target_matches = sum(1 for kw in target_keywords if kw in text)
-        general_matches = sum(1 for kw in general_keywords if kw in text)
+        # Count matches with different weights (case insensitive)
+        text_lower = text.lower()
+        target_matches = sum(1 for kw in target_keywords if kw in text_lower)
+        general_matches = sum(1 for kw in general_keywords if kw in text_lower)
+        
+        # Only show debug for elements that actually get keyword matches
+        if target_matches > 0 or general_matches > 0:
+            print(f"🔍 '{text}' -> keywords: {target_keywords} -> matches: target={target_matches}, general={general_matches}")
         
         # Apply weighted compound boosts
         total_boost = 0
         if target_matches > 0:
             # TARGET WORDS get massive boost (food items, proteins, etc.)
-            target_boost = target_matches * 3.0  # 3.0 per target word (was 1.5)
+            target_boost = target_matches * 3.0  # 3.0 per target word
             total_boost += target_boost
             
         if general_matches > 0:
             # GENERAL/ACTION WORDS get smaller boost
-            general_boost = general_matches * 0.5  # 0.5 per action word (much less)
-            total_boost += general_boost
-        
-        # Apply weighted compound boosts
-        total_boost = 0
-        if target_matches > 0:
-            # TARGET WORDS get massive boost (food items, proteins, etc.)
-            target_boost = target_matches * 3.0  # 3.0 per target word (was 1.5)
-            total_boost += target_boost
-            
-        if general_matches > 0:
-            # GENERAL/ACTION WORDS get smaller boost
-            general_boost = general_matches * 0.5  # 0.5 per action word (much less)
+            general_boost = general_matches * 0.5  # 0.5 per action word
             total_boost += general_boost
         
         # Apply compound boosts based on total matches + high-value attributes
         if total_boost > 0:
             # MASSIVE compound boost if element has BOTH goal keywords AND high-value data attributes
-            high_value_attrs = ['data-qa-group-name', 'data-menu-item', 'data-item-name', 'data-testid', 'data-track']
+            high_value_attrs = ['data-qa-item-name', 'data-qa-group-name', 'data-menu-item', 'data-item-name', 'data-testid', 'data-track']
             has_high_value_attr = any(attr_name in attrs for attr_name in high_value_attrs)
             
             if has_high_value_attr:
                 compound_boost = total_boost * 3.0  # Triple the boost for high-value attributes
                 score += compound_boost
                 # Debug logging for compound boosts
-                #print(f"🎯 COMPOUND BOOST: '{text}' got +{compound_boost:.1f} (target: {target_matches}, general: {general_matches}, high-value attrs: {has_high_value_attr})")
+                print(f"🎯 COMPOUND BOOST: '{text}' got +{compound_boost:.1f} (target: {target_matches}, general: {general_matches}, high-value attrs: {has_high_value_attr})")
             else:
                 score += total_boost
                 # Debug logging for keyword-only boosts  
-                #print(f"🔍 KEYWORD BOOST: '{text}' got +{total_boost:.1f} (target: {target_matches}, general: {general_matches})")
+                print(f"🔍 KEYWORD BOOST: '{text}' got +{total_boost:.1f} (target: {target_matches}, general: {general_matches})")
+        
+        # ENHANCED: Check for multi-word exact matches (like "fajita veggies")
+        # This gives even bigger boost when the exact phrase appears
+        goal_phrase = goal_lower.replace("add", "").replace("'", "").replace('"', "").replace("as a topping", "").replace("as", "").strip()
+        if len(goal_phrase.split()) >= 2 and goal_phrase in text.lower():
+            phrase_boost = 5.0  # MASSIVE boost for exact phrase match
+            score += phrase_boost
+            print(f"🔥 PHRASE MATCH: '{text}' got +{phrase_boost:.1f} for exact phrase '{goal_phrase}'")
 
         element.score = max(0.0, score)  # Ensure non-negative
     

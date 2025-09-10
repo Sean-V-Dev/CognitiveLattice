@@ -489,7 +489,7 @@ class BrowserEngineTool:
     
     async def click_element(self, selector: str, timeout: int = 5000) -> Dict[str, Any]:
         """
-        Click an element on the page.
+        Click an element on the page with enhanced handling for compound selectors.
         
         Args:
             selector: CSS selector for the element to click
@@ -505,9 +505,10 @@ class BrowserEngineTool:
             }
         
         try:
-            # Wait for element and click
-            await self.page.wait_for_selector(selector, timeout=timeout)
-            await self.page.click(selector)
+            # Use .first for better handling of compound selectors that may match multiple elements
+            locator = self.page.locator(selector).first
+            await locator.scroll_into_view_if_needed()
+            await locator.click(timeout=timeout)
             
             # Wait a moment for any resulting page changes
             await self.page.wait_for_timeout(1000)
@@ -519,12 +520,27 @@ class BrowserEngineTool:
             }
             
         except Exception as e:
-            return {
-                'status': 'error',
-                'selector': selector,
-                'error': str(e),
-                'message': f'Failed to click element {selector}: {str(e)}'
-            }
+            # Try with force=True for overlay interference
+            try:
+                locator = self.page.locator(selector).first
+                await locator.scroll_into_view_if_needed()
+                await locator.click(timeout=timeout, force=True)
+                
+                await self.page.wait_for_timeout(1000)
+                
+                return {
+                    'status': 'success',
+                    'selector': selector,
+                    'message': f'Successfully clicked element with force: {selector}'
+                }
+            except Exception as force_error:
+                return {
+                    'status': 'error',
+                    'selector': selector,
+                    'error': str(force_error),
+                    'original_error': str(e),
+                    'message': f'Failed to click element {selector}: {str(force_error)}'
+                }
     
     async def type_text(self, selector: str, text: str, clear_first: bool = True, press_enter: bool = False) -> Dict[str, Any]:
         """

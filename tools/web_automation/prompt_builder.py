@@ -23,14 +23,20 @@ SYSTEM_INSTRUCTIONS = (
     "GOAL LEXICON (derive per step): "
     "- Extract target nouns from the goal (things to click/select), plus 2–6 common UI variants. "
     "- Extract verbs and qualifiers (filters, ingredients, dates…). "
+    "- CRITICAL: When goal says 'custom/build/create', look for BUILD-YOUR-OWN functionality, not pre-made product names. "
+    "- CRITICAL: Distinguish between CUSTOMIZATION TOOLS vs PRODUCT NAMES (e.g., 'Build Your Own' vs 'Premium Burger'). "
     
     "DISQUALIFIERS (reject unless explicitly requested by the goal): "
     "- Marketing/hero/promo copy (e.g., \"limited time\", \"featured\", \"join\", \"rewards\", \"order now\"). "
     "- Group/catering/corporate language (e.g., \"for X–Y people\", \"$ per person\"). "
     "- Prebuilt/lifestyle/celebrity items if the goal is custom building (e.g., \"Lifestyle Bowl\", \"The ___ Bowl\"). "
+    "- CRITICAL: Pre-made product names when goal asks for 'custom' (e.g., avoid 'Deluxe Burger' if goal is 'build custom burger'). "
     
     "PREFERENCES (apply within top-5): "
     "1) GOAL-NOUN FIRST: Prefer candidates whose TEXT or ATTRIBUTES contain a target noun or its variants. "
+    "   - If goal contains 'custom/build/create', STRONGLY prefer customization tools over product names. "
+    "   - Look for phrases like: 'Build Your Own', 'Create', 'Customize', 'Start Building', generic category names. "
+    "   - AVOID: Specific product names, branded items, pre-configured options when customization is requested. "
     "2) SEMANTIC SELECTORS over decorative containers: "
     "   Strong: [data-*], [role], [aria-*], clear text with goal noun. "
     "   Weak: generic containers (hero/top-level-menu/card/paragraph) or empty text. "
@@ -344,8 +350,8 @@ def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dic
     # Constraints and stop conditions
     lines.append("--- Constraints ---")
     lines.append("- Do NOT click login/rewards/marketing unless explicitly required")
-    lines.append("- Focus ONLY on location search functionality") 
-    lines.append("- If no search field visible, click elements that reveal search boxes")
+    lines.append("- Focus on the core goal")
+    lines.append("- If no relevant elements are visible, click elements that reveal the functionality you need")
     lines.append("- DO NOT repeat actions from recent history - avoid clicking same elements")
     lines.append("- If stuck in a loop, try: different selectors, navigation links, or wait commands")
     lines.append("- STOP if goal is achieved or clearly impossible")
@@ -366,8 +372,8 @@ def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dic
                  "INTELLIGENT SELECTION: Don't j.\n"
                  "TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields.\n"
                  "BREADCRUMB: Write a brief note for your future self about what you just accomplished. "
-                 "Keep it simple: 'Selected Burrito Bowl', 'Added chicken protein', 'Entered ZIP 45305', etc. "
-                 "This helps maintain context across the ordering workflow.\n"
+                 "Keep it simple: 'Selected menu item', 'Added ingredient', 'Entered search term', etc. "
+                 "This helps maintain context across the workflow.\n"
                  "Limit commands to 1–3. Do not include any text outside the JSON.")
     
     return "\n\n".join(lines)
