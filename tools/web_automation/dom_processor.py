@@ -341,68 +341,114 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                     if len(elements) >= max_items:
                         return elements
 
-            # 2) Interactive divs/spans (clickable heuristics)
-            # Use XPath for precision on clickable divs/spans - cast to broader approach
-            clickable_divs = tree.xpath(
-                "//div[(@onclick or @role='button' or @role='menuitem' or @tabindex != '-1' or "
-                "contains(@class, 'btn') or contains(@class, 'clickable') or contains(@class, 'card') or "
-                "contains(@data-qa, 'item') or contains(@data-qa, 'menu') or contains(@data-testid, 'location') or "
-                "@data-qa-item-name or @data-qa-group-name or @data-testid) and string-length(text()) > 1] | "  # Add text length filter
-                "//span[(@onclick or @role='button' or @role='menuitem' or @tabindex != '-1' or "
-                "contains(@class, 'btn') or contains(@class, 'clickable') or contains(@class, 'card') or "
-                "contains(@data-qa, 'item') or contains(@data-qa, 'menu') or contains(@data-testid, 'location') or "
-                "@data-qa-item-name or @data-qa-group-name or @data-testid) and string-length(text()) > 1]"
-            )
             
-            for elem in clickable_divs:
-                attrs = dict(elem.attrib)
+              # 2) Interactive divs/spans - use element identity instead of XPath
+            processed_elements = set()
+
+            def _add_clickable(elem):
+                if id(elem) in processed_elements:
+                    return False
+                processed_elements.add(id(elem))
+                
+                attrs_dict = dict(elem.attrib)
                 raw_text = elem.text_content().strip() or ""
-                text = _extract_meaningful_text(raw_text, attrs)
-                if is_clickable_div(attrs, text):
-                    selectors = _candidate_selectors(elem.tag, attrs, text)
-                    
-                    # Check for unique selectors and add disambiguation if needed
+                text = _extract_meaningful_text(raw_text, attrs_dict)
+
+                if is_clickable_div(attrs_dict, text):
+                    selectors = _candidate_selectors(elem.tag, attrs_dict, text)
+
+                    # Try to make the first selector unique; safe aria refinement + XPath fallback
                     if selectors and len(tree.cssselect(selectors[0])) > 1:
-                        # Primary selector hits multiple elements, try better unique selectors first
                         unique_selector_found = False
+                        if attrs.get('role'):
+                            s = f"{selectors[0]}[role='{attrs['role']}']"
+                            if len(tree.cssselect(s)) == 1:
+                                selectors.insert(0, s)
+                                unique_selector_found = True
+                        if not unique_selector_found and attrs_dict.get('aria-label'):
+                            # Use the existing esc function from _candidate_selectors instead
+                            aria_escaped = attrs_dict['aria-label'][:20].replace('"', r'\"')
+                            s = f"{selectors[0]}[aria-label*=\"{aria_escaped}\"]"
+                            if len(tree.cssselect(s)) == 1:
+                                selectors.insert(0, s)
+                                unique_selector_found = True
+                        # Around line 324, replace the undefined 'path' with tree.getpath(elem):
+
                         
-                        # Try data attributes for uniqueness first
-                        if selectors and len(tree.cssselect(selectors[0])) > 1:
-                            unique_selector_found = False
-                            
-                            # Try combining with role or aria-label for uniqueness
-                            if attrs.get('role'):
-                                role_selector = f"{selectors[0]}[role='{attrs['role']}']"
-                                if len(tree.cssselect(role_selector)) == 1:
-                                    selectors.insert(0, role_selector)
-                                    unique_selector_found = True
-                            
-                            if not unique_selector_found and attrs.get('aria-label'):
-                                aria_selector = f"{selectors[0]}[aria-label*='{esc(attrs['aria-label'][:20])}']"
-                                if len(tree.cssselect(aria_selector)) == 1:
-                                    selectors.insert(0, aria_selector)
-                                    unique_selector_found = True
-                            
-                            # nth-child as last resort, but use lxml's getpath for full XPath if needed
-                            if not unique_selector_found:
-                                xpath = tree.getpath(elem)  # Full unique XPath
-                                if xpath:
-                                    selectors.insert(0, xpath)  # Playwright supports XPath too!
-                                            
+                        
+                        if not unique_selector_found:
+                            selectors.insert(0, tree.getpath(elem))  # unique XPath fallback
+
                     relevant_attrs = [
                         "id", "class", "name", "role", "aria-label", "onclick", "data-testid", "tabindex"
                     ] + [k for k in attrs.keys() if k.startswith("data-")]
-                    
+
                     elements.append(Element(
                         tag=elem.tag,
                         text=text,
                         attrs={k: attrs.get(k, "") for k in relevant_attrs},
                         selectors=selectors
                     ))
-                    if len(elements) >= max_items:
-                        return elements
+                    return True
+                return False
+
+            # 2a) STRONG-LABEL PASS: data-* label attributes (works across many sites)
+            strong_label_cards = tree.xpath(
+                "//div[@data-qa-item-name or @data-qa-title or @data-qa-name or "
+                "@data-testid or @data-test-id or @data-item-name or @data-name or @data-title or @data-label] | "
+                "//span[@data-qa-item-name or @data-qa-title or @data-qa-name or "
+                "@data-testid or @data-test-id or @data-item-name or @data-name or @data-title or @data-label]"
+            )
+            for elem in strong_label_cards:
+                if len(elements) >= max_items:
+                    return elements
+                _add_clickable(elem)
+
+            # 2b) GENERIC CLICKABLES: no data-* required; needs descendant text/aria/alt
+            generic_clickables = tree.xpath(
+                "("
+                  "//div["
+                    "@onclick or @role='button' or @role='menuitem' or @role='option' or @role='tab' or "
+                    "(@tabindex and not(@tabindex='-1')) or "
+                    "contains(concat(' ',normalize-space(@class),' '),' btn ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' button ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' clickable ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' card ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' tile ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' menu-item ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' option ') or "
+                    ".//button or .//a[@href or @role='button'] or "
+                    ".//*[@role='button' or @role='menuitem' or @role='option'] or "
+                    ".//input[@type='radio' or @type='checkbox']"
+                  "] | "
+                  "//span["
+                    "@onclick or @role='button' or @role='menuitem' or @role='option' or @role='tab' or "
+                    "(@tabindex and not(@tabindex='-1')) or "
+                    "contains(concat(' ',normalize-space(@class),' '),' btn ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' button ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' clickable ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' card ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' tile ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' menu-item ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' option ') or "
+                    ".//button or .//a[@href or @role='button'] or "
+                    ".//*[@role='button' or @role='menuitem' or @role='option'] or "
+                    ".//input[@type='radio' or @type='checkbox']"
+                  "]"
+                ")"
+                "["
+                  "string-length(normalize-space(.)) > 1 or "
+                  ".//*[@aria-label][string-length(normalize-space(@aria-label))>0] or "
+                  ".//img[@alt][string-length(normalize-space(@alt))>0]"
+                "]"
+            )
+            for elem in generic_clickables:
+                if len(elements) >= max_items:
+                    return elements
+                _add_clickable(elem)
 
             return elements
+
             
         except Exception as e:
             print(f"⚠️ lxml parsing failed: {e}, falling back to regex")
@@ -880,9 +926,9 @@ def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "",
         f.write(f"Goal: {goal}\n")
         f.write(f"Raw DOM Length: {len(raw_dom)} chars\n\n")
         
-        f.write(f"All Interactive Elements ({len(elements)}):\n")
+        f.write(f"All Interactive Elements ({len(scored_elements)}):\n")
         f.write("-" * 30 + "\n")
-        for i, elem in enumerate(elements):
+        for i, elem in enumerate(scored_elements):
             f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}'\n")
         
         f.write(f"\nInput/Textarea Elements ({len(input_elements)}):\n")

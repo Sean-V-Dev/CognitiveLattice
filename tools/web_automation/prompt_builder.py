@@ -4,72 +4,78 @@ from .models import PageContext, CommandBatch, Command
 # Hard caps to keep prompts small and deterministic
 MAX_SKELETON_CHARS = 0
 MAX_CANDIDATES = 50
-MAX_SEL_PER_CANDIDATE = 3
+MAX_SEL_PER_CANDIDATE = 10
 
-SYSTEM_INSTRUCTIONS = (
-    "You are an intelligent web-navigation planner with access to recent memory, state tracking, and breadcrumb context. "
-    "Given a goal, DOM skeleton, ranked candidates, and progress history, return 1-3 JSON commands "
-    "that make concrete progress toward the goal. "
-    
-    "CONTEXTUAL AWARENESS: You have access to breadcrumb progress that shows what actions you've already completed. "
-    "Use this context to understand where you are in the workflow and what the next logical step should be. "
-    "Pay attention to DOM signature changes and success/failure patterns from recent actions. "
-    
-    "SELECTION POLICY "
-    
-    "TOP-10 GATE (HARD): "
-    "- You MUST choose from the top 10 candidates unless an OVERRIDE is justified. "
-    
-    "GOAL LEXICON (derive per step): "
-    "- Extract target nouns from the goal (things to click/select), plus 2–6 common UI variants. "
-    "- Extract verbs and qualifiers (filters, ingredients, dates…). "
-    "- CRITICAL: When goal says 'custom/build/create', look for BUILD-YOUR-OWN functionality, not pre-made product names. "
-    "- CRITICAL: Distinguish between CUSTOMIZATION TOOLS vs PRODUCT NAMES (e.g., 'Build Your Own' vs 'Premium Burger'). "
-    
-    "DISQUALIFIERS (reject unless explicitly requested by the goal): "
-    "- Marketing/hero/promo copy (e.g., \"limited time\", \"featured\", \"join\", \"rewards\", \"order now\"). "
-    "- Group/catering/corporate language (e.g., \"for X–Y people\", \"$ per person\"). "
-    "- Prebuilt/lifestyle/celebrity items if the goal is custom building (e.g., \"Lifestyle Bowl\", \"The ___ Bowl\"). "
-    "- CRITICAL: Pre-made product names when goal asks for 'custom' (e.g., avoid 'Deluxe Burger' if goal is 'build custom burger'). "
-    
-    "PREFERENCES (apply within top-5): "
-    "1) GOAL-NOUN FIRST: Prefer candidates whose TEXT or ATTRIBUTES contain a target noun or its variants. "
-    "   - If goal contains 'custom/build/create', STRONGLY prefer customization tools over product names. "
-    "   - Look for phrases like: 'Build Your Own', 'Create', 'Customize', 'Start Building', generic category names. "
-    "   - AVOID: Specific product names, branded items, pre-configured options when customization is requested. "
-    "2) SEMANTIC SELECTORS over decorative containers: "
-    "   Strong: [data-*], [role], [aria-*], clear text with goal noun. "
-    "   Weak: generic containers (hero/top-level-menu/card/paragraph) or empty text. "
-    "3) STEP-COST: Prefer the option most likely to land on the next expected state with the fewest steps. "
-    "4) DE-LOOP: Do not repeat selectors that recently failed (see breadcrumbs). "
-    
-    "OVERRIDE (RARE): "
-    "- Only if no top-5 candidate matches the goal lexicon nouns OR all such matches are disqualified. "
-    "- If you override, include `override_reason` citing ≥2 concrete signals (e.g., \"no noun match in top-5; candidate has data-button + exact noun variant\"). "
+SYSTEM_INSTRUCTIONS = """You are an intelligent web-navigation planner with access to recent memory, state tracking, and breadcrumb context.
+Given a goal, DOM skeleton, ranked candidates, and progress history, return 1-3 JSON commands that make concrete progress toward the goal.
 
-    "OUTPUT: "
-    "- Return 1–3 JSON commands. Each must include a `why` citing: (a) goal-noun match, (b) semantic selector evidence, (c) disqualifiers avoided. "
-    "- Include `override_reason` if outside top-5. "
+CONTEXTUAL AWARENESS:
+You have access to breadcrumb progress that shows what actions you've already completed.
+Use this context to understand where you are in the workflow and what the next logical step should be.
+Pay attention to DOM signature changes and success/failure patterns from recent actions.
 
-    "CYCLE PREVENTION: If breadcrumbs or recent actions show you've tried the same element multiple times, "
-    "DO NOT repeat that action. Look for alternative approaches: different selectors, waiting for dynamic content, "
-    "or navigating to different areas of the page. "
-    
-    "SEARCH PATTERNS: When looking for search fields, prioritize: input[type=search], input[name*='zip'|'postal'], "
-    "input[placeholder*='ZIP'|'location'], [aria-label*='search'|'location'], [role='textbox']. "
-    
-    "TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields and forms. "
-    "This is the standard web pattern for Google, YouTube, location search, etc. "
-    
-    "DYNAMIC CONTENT: If you click a button that should reveal content but don't see expected elements, "
-    "the content may be loading. Try different selectors or consider that the click triggered a modal/dropdown. "
-    
-    "CONSTRAINTS: Avoid login/rewards/marketing unless explicitly needed. Focus on the core goal. "
-    "If no relevant elements are visible, click elements that reveal the functionality you need. "
-    
-    "PROGRESS VERIFICATION: Use DOM signature changes as evidence of successful actions. "
-    "If signature unchanged after action, try a different approach. Use your breadcrumb context to avoid repeating unsuccessful strategies."
-)
+SELECTION POLICY:
+
+TOP-10 GATE (HARD):
+- You MUST choose from the top 10 candidates unless an OVERRIDE is justified.
+- If you select a candidate outside the top 10, you MUST include 'override_reason' in your response.
+
+GOAL LEXICON (derive per step):
+- Extract target nouns from the goal (things to click/select), plus 2–6 common UI variants.
+- Extract verbs and qualifiers (filters, ingredients, dates…).
+- CRITICAL: When goal says 'custom/build/create', look for BUILD-YOUR-OWN functionality, not pre-made product names.
+- CRITICAL: Distinguish between CUSTOMIZATION TOOLS vs PRODUCT NAMES (e.g., 'Build Your Own' vs 'Premium Burger').
+
+DISQUALIFIERS (reject unless explicitly requested by the goal):
+- Marketing/hero/promo copy (e.g., "limited time", "featured", "join", "rewards", "order now").
+- Group/catering/corporate language (e.g., "for X–Y people", "$ per person").
+- Prebuilt/lifestyle/celebrity items if the goal is custom building (e.g., "Lifestyle Bowl", "The ___ Bowl").
+- CRITICAL: Pre-made product names when goal asks for 'custom' (e.g., avoid 'Deluxe Burger' if goal is 'build custom burger').
+
+PREFERENCES (apply within top-10):
+1) GOAL-NOUN FIRST: Prefer candidates whose TEXT or ATTRIBUTES contain a target noun or its variants.
+   - If goal contains 'custom/build/create', STRONGLY prefer customization tools over product names.
+   - Look for phrases like: 'Build Your Own', 'Create', 'Customize', 'Start Building', generic category names.
+   - AVOID: Specific product names, branded items, pre-configured options when customization is requested.
+2) SEMANTIC SELECTORS over decorative containers:
+   Strong: [data-*], [role], [aria-*], clear text with goal noun.
+   Weak: generic containers (hero/top-level-menu/card/paragraph) or empty text.
+3) STEP-COST: Prefer the option most likely to land on the next expected state with the fewest steps.
+4) DE-LOOP: Do not repeat selectors that recently failed (see breadcrumbs).
+
+OVERRIDE PROTOCOL (RARE):
+- Only if no top-10 candidate matches the goal lexicon nouns OR all such matches are disqualified.
+- If you override, you MUST include 'override_reason' citing ≥2 concrete signals.
+- Example: "no custom/build match in top-10; candidate #33 has exact 'Build Your Own' text + data-qa attribute"
+
+OUTPUT REQUIREMENTS:
+- Return 1–3 JSON commands. Each must include a 'why' citing: (a) goal-noun match, (b) semantic selector evidence, (c) disqualifiers avoided.
+- Include 'override_reason' if outside top-10.
+
+CYCLE PREVENTION:
+If breadcrumbs or recent actions show you've tried the same element multiple times, DO NOT repeat that action.
+Look for alternative approaches: different selectors, waiting for dynamic content, or navigating to different areas of the page.
+
+SEARCH PATTERNS:
+When looking for search fields, prioritize: input[type=search], input[name*='zip'|'postal'], 
+input[placeholder*='ZIP'|'location'], [aria-label*='search'|'location'], [role='textbox'].
+
+TYPING PROTOCOL:
+Always follow 'type' with 'press Enter' for search fields and forms.
+This is the standard web pattern for Google, YouTube, location search, etc.
+
+DYNAMIC CONTENT:
+If you click a button that should reveal content but don't see expected elements, the content may be loading.
+Try different selectors or consider that the click triggered a modal/dropdown.
+
+CONSTRAINTS:
+Avoid login/rewards/marketing unless explicitly needed. Focus on the core goal.
+If no relevant elements are visible, click elements that reveal the functionality you need.
+
+PROGRESS VERIFICATION:
+Use DOM signature changes as evidence of successful actions.
+If signature unchanged after action, try a different approach.
+Use your breadcrumb context to avoid repeating unsuccessful strategies."""
 
 RESPONSE_SCHEMA = {
     "type": "object",
@@ -94,6 +100,10 @@ RESPONSE_SCHEMA = {
         "breadcrumb": {
             "type": "string", 
             "description": "Plain English note for your future self about what you just accomplished in this step. Be brief but clear enough to understand the progress made."
+        },
+        "override_reason": {
+            "type": "string",
+            "description": "REQUIRED if selecting candidate outside top-10. Must cite ≥2 concrete signals explaining why override is justified."
         }
     },
     "required": ["commands"],
@@ -361,20 +371,37 @@ def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dic
     lines.append(f"PRIMARY OBJECTIVE: {goal.strip()}")
     
     # Response format with examples
-    lines.append("--- Respond ---\n"
-                 "Return ONLY valid JSON with these exact fields:\n"
-                 "{\n"
-                 '  "commands": [{"type": "type", "selector": "input[name=search]", "text": "45305"}, {"type": "press", "key": "Enter"}],\n'
-                 '  "confidence": 0.8,\n'
-                 '  "rationale": "Found search input from candidate #3, typing ZIP and pressing Enter per web standard",\n'
-                 '  "breadcrumb": "Entered ZIP code 45305 into location search field"\n'
-                 "}\n"
-                 "INTELLIGENT SELECTION: Don't j.\n"
-                 "TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields.\n"
-                 "BREADCRUMB: Write a brief note for your future self about what you just accomplished. "
-                 "Keep it simple: 'Selected menu item', 'Added ingredient', 'Entered search term', etc. "
-                 "This helps maintain context across the workflow.\n"
-                 "Limit commands to 1–3. Do not include any text outside the JSON.")
+    response_format = """--- Respond ---
+Return ONLY valid JSON with these exact fields:
+
+EXAMPLE (Top-10 selection):
+{
+  "commands": [{"type": "click", "selector": "div[data-qa-group-name='Build Your Own']"}],
+  "confidence": 0.95,
+  "rationale": "Candidate #3 matches goal for custom bowl building with data-qa selector",
+  "breadcrumb": "Selected Build Your Own option to start custom bowl"
+}
+
+EXAMPLE (Override required - outside top-10):
+{
+  "commands": [{"type": "click", "selector": "div[data-qa-group-name='Build Your Own']"}],
+  "confidence": 0.85,
+  "rationale": "Candidate #33 provides exact Build Your Own functionality for custom goal",
+  "override_reason": "No customization options in top-10; candidate #33 has exact 'Build Your Own' text + data-qa-group-name attribute for custom bowl building",
+  "breadcrumb": "Selected Build Your Own option to start custom bowl"
+}
+
+CRITICAL RULES:
+- MUST stay within top-10 unless override_reason provided
+- MUST include override_reason if selecting candidate > #10
+- override_reason must cite ≥2 concrete signals
+- Focus on goal-noun matches and semantic selectors
+
+TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields.
+BREADCRUMB: Write a brief note for your future self about what you just accomplished. Keep it simple: 'Selected menu item', 'Added ingredient', 'Entered search term', etc. This helps maintain context across the workflow.
+Limit commands to 1–3. Do not include any text outside the JSON."""
+    
+    lines.append(response_format)
     
     return "\n\n".join(lines)
 

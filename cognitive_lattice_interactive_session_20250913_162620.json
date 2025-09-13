@@ -1,0 +1,305 @@
+{
+  "active_task_state": {
+    "task_title": "Structured Task: can you go to chipotle.com then go to the menu and...",
+    "status": "in_progress",
+    "query": "can you go to chipotle.com then go to the menu and build me a bowl with the following ingredients: chicken, white rice, black beans, fajita veggies, corn salsa, cheese, and lettuce. Submit the order. After that name the order \"Sean\" and submit it again. Then review the cart.",
+    "task_plan": [
+      "Navigate to the 'Menu' section on chipotle.com.",
+      "Select the option to build a bowl.",
+      "Choose chicken as the protein.",
+      "Add white rice to the bowl.",
+      "Add black beans to the bowl.",
+      "Add fajita veggies to the bowl.",
+      "Add corn salsa to the bowl.",
+      "Add cheese to the bowl.",
+      "Add lettuce to the bowl.",
+      "Add the completed bowl to the cart.",
+      "Proceed to submit the order for the bowl.",
+      "Name the order 'Sean' when prompted or in the order details.",
+      "Submit the order again with the name 'Sean'.",
+      "Review the cart to confirm the order contents."
+    ],
+    "completed_steps": [],
+    "created": "2025-09-13T16:26:37.029411",
+    "last_updated": "2025-09-13T16:26:37.029411"
+  },
+  "event_log": [
+    {
+      "type": "web_automation",
+      "query": "can you go to chipotle.com then go to the menu and build me a bowl with the following ingredients: chicken, white rice, black beans, fajita veggies, corn salsa, cheese, and lettuce. Submit the order. After that name the order \"Sean\" and submit it again. Then review the cart.",
+      "action": "build_and_submit_order",
+      "timestamp": "2025-09-13T16:26:34.824057",
+      "status": "pending"
+    },
+    {
+      "type": "task_creation",
+      "timestamp": "2025-09-13T16:26:37.029411",
+      "query": "can you go to chipotle.com then go to the menu and build me a bowl with the following ingredients: chicken, white rice, black beans, fajita veggies, corn salsa, cheese, and lettuce. Submit the order. After that name the order \"Sean\" and submit it again. Then review the cart."
+    },
+    {
+      "type": "plan_generated",
+      "timestamp": "2025-09-13T16:26:37.029411",
+      "plan": [
+        "Navigate to the 'Menu' section on chipotle.com.",
+        "Select the option to build a bowl.",
+        "Choose chicken as the protein.",
+        "Add white rice to the bowl.",
+        "Add black beans to the bowl.",
+        "Add fajita veggies to the bowl.",
+        "Add corn salsa to the bowl.",
+        "Add cheese to the bowl.",
+        "Add lettuce to the bowl.",
+        "Add the completed bowl to the cart.",
+        "Proceed to submit the order for the bowl.",
+        "Name the order 'Sean' when prompted or in the order details.",
+        "Submit the order again with the name 'Sean'.",
+        "Review the cart to confirm the order contents."
+      ]
+    },
+    {
+      "type": "web_decision",
+      "data": {
+        "schema_version": "web_automation.v0.1",
+        "session_id": "web_automation",
+        "step": 1,
+        "goal": "Navigate to the 'Menu' section on chipotle.com.",
+        "site_url": "https://chipotle.com",
+        "mode": "autonomous",
+        "rationale": "Candidate #4 and #7 have exact text 'MENU' matching the goal noun 'Menu' with semantic anchor tag selectors, avoiding disqualified marketing or rewards links.",
+        "confidence": 0.98,
+        "idempotency_key": "",
+        "preconditions": [],
+        "postconditions": [],
+        "human_pacing": {
+          "min_ms": 120,
+          "max_ms": 480
+        },
+        "dom_signatures": {
+          "before": "c6df45db6db817db"
+        },
+        "planned_commands": [
+          {
+            "type": "click",
+            "selector": "a:has-text('MENU')",
+            "text": null,
+            "url": null
+          }
+        ],
+        "timestamp": "2025-09-13T20:27:06.191034Z"
+      },
+      "source": "web_automation",
+      "timestamp": "2025-09-13T20:27:06.191034Z"
+    },
+    {
+      "type": "web_execution_result",
+      "data": {
+        "schema_version": "web_automation.v0.1",
+        "session_id": "web_automation",
+        "step": 1,
+        "goal": "Navigate to the 'Menu' section on chipotle.com.",
+        "site_url": "https://chipotle.com",
+        "success": false,
+        "idempotency_key": "",
+        "executed_commands": [
+          {
+            "type": "click",
+            "selector": "a:has-text('MENU')",
+            "text": null,
+            "url": null
+          }
+        ],
+        "findings": {},
+        "used_selector": "a:has-text('MENU')",
+        "fallback_used": true,
+        "timing_ms": 1537,
+        "dom_signatures": {
+          "before": "c6df45db6db817db",
+          "after": "2f290b39a43dfde0",
+          "changed": true
+        },
+        "postcondition_results": [],
+        "errors": {},
+        "timestamp": "2025-09-13T20:27:06.191034Z"
+      },
+      "source": "web_automation",
+      "timestamp": "2025-09-13T20:27:06.191034Z"
+    },
+    {
+      "type": "web_step_completed",
+      "timestamp": "2025-09-13T16:27:09.221047",
+      "step_number": 1,
+      "step_description": "Navigate to the 'Menu' section on chipotle.com.",
+      "success": false,
+      "dom_changed": true,
+      "result": {
+        "success": false,
+        "evidence": {
+          "success": false,
+          "dom_after_sig": "2f290b39a43dfde0",
+          "dom_before_sig": null,
+          "regions_after": [],
+          "findings": {},
+          "used_selector": "a:has-text('MENU')",
+          "fallback_used": true,
+          "timing_ms": 1537
+        },
+        "dom_changed": true,
+        "final_url": "https://chipotle.com",
+        "completion_analysis": {
+          "reason": "execution_failed",
+          "details": "Errors: ['Interaction commands executed but DOM unchanged - likely failed to find elements']"
+        },
+        "verification": {
+          "complete": false,
+          "analysis": {
+            "reason": "execution_failed",
+            "details": "Errors: ['Interaction commands executed but DOM unchanged - likely failed to find elements']"
+          }
+        },
+        "commands_executed": [
+          {
+            "type": "click",
+            "selector": "a:has-text('MENU')",
+            "text": null,
+            "key": null,
+            "url": null
+          }
+        ],
+        "step_goal": "Navigate to the 'Menu' section on chipotle.com.",
+        "rationale": "Candidate #4 and #7 have exact text 'MENU' matching the goal noun 'Menu' with semantic anchor tag selectors, avoiding disqualified marketing or rewards links.",
+        "confidence": 0.98,
+        "page_signature": "2f290b39a43dfde0",
+        "breadcrumb": "Clicked on 'MENU' link to navigate to the Menu section"
+      }
+    },
+    {
+      "type": "web_decision",
+      "data": {
+        "schema_version": "web_automation.v0.1",
+        "session_id": "web_automation",
+        "step": 2,
+        "goal": "Select the option to build a bowl.",
+        "site_url": "https://chipotle.com",
+        "mode": "autonomous",
+        "rationale": "Candidate #6 matches goal noun 'bowl' and is a generic bowl option suitable for building a custom bowl; uses semantic attribute 'data-qa-group-name' indicating a group/category, avoiding prebuilt named bowls which are disqualified.",
+        "confidence": 0.95,
+        "idempotency_key": "",
+        "preconditions": [],
+        "postconditions": [],
+        "human_pacing": {
+          "min_ms": 120,
+          "max_ms": 480
+        },
+        "dom_signatures": {
+          "before": "c10ce5ddbb7fa3e2"
+        },
+        "planned_commands": [
+          {
+            "type": "click",
+            "selector": "div[data-qa-group-name='Burrito Bowl']",
+            "text": null,
+            "url": null
+          }
+        ],
+        "timestamp": "2025-09-13T20:27:26.613685Z"
+      },
+      "source": "web_automation",
+      "timestamp": "2025-09-13T20:27:26.613685Z"
+    },
+    {
+      "type": "web_execution_result",
+      "data": {
+        "schema_version": "web_automation.v0.1",
+        "session_id": "web_automation",
+        "step": 2,
+        "goal": "Select the option to build a bowl.",
+        "site_url": "https://chipotle.com",
+        "success": true,
+        "idempotency_key": "",
+        "executed_commands": [
+          {
+            "type": "click",
+            "selector": "div[data-qa-group-name='Burrito Bowl']",
+            "text": null,
+            "url": null
+          }
+        ],
+        "findings": {},
+        "used_selector": "div[data-qa-group-name='Burrito Bowl']",
+        "fallback_used": false,
+        "timing_ms": 1631,
+        "dom_signatures": {
+          "before": "c10ce5ddbb7fa3e2",
+          "after": "65b6c5e489252f84",
+          "changed": true
+        },
+        "postcondition_results": [],
+        "errors": {},
+        "timestamp": "2025-09-13T20:27:26.613685Z"
+      },
+      "source": "web_automation",
+      "timestamp": "2025-09-13T20:27:26.613685Z"
+    },
+    {
+      "type": "web_step_completed",
+      "timestamp": "2025-09-13T16:27:32.659425",
+      "step_number": 2,
+      "step_description": "Select the option to build a bowl.",
+      "success": true,
+      "dom_changed": true,
+      "result": {
+        "success": true,
+        "evidence": {
+          "success": true,
+          "dom_after_sig": "65b6c5e489252f84",
+          "dom_before_sig": null,
+          "regions_after": [],
+          "findings": {},
+          "used_selector": "div[data-qa-group-name='Burrito Bowl']",
+          "fallback_used": false,
+          "timing_ms": 1631
+        },
+        "dom_changed": true,
+        "final_url": "https://chipotle.com",
+        "completion_analysis": {
+          "reason": "complete",
+          "details": "All completion criteria met"
+        },
+        "verification": {
+          "complete": true,
+          "analysis": {
+            "reason": "complete",
+            "details": "All completion criteria met"
+          }
+        },
+        "commands_executed": [
+          {
+            "type": "click",
+            "selector": "div[data-qa-group-name='Burrito Bowl']",
+            "text": null,
+            "key": null,
+            "url": null
+          }
+        ],
+        "step_goal": "Select the option to build a bowl.",
+        "rationale": "Candidate #6 matches goal noun 'bowl' and is a generic bowl option suitable for building a custom bowl; uses semantic attribute 'data-qa-group-name' indicating a group/category, avoiding prebuilt named bowls which are disqualified.",
+        "confidence": 0.95,
+        "page_signature": "65b6c5e489252f84",
+        "breadcrumb": "Selected generic Burrito Bowl option to start building custom bowl"
+      }
+    },
+    {
+      "type": "web_step_completed",
+      "timestamp": "2025-09-13T16:27:52.124161",
+      "step_number": 3,
+      "step_description": "Choose chicken as the protein.",
+      "success": false,
+      "dom_changed": false,
+      "result": {
+        "success": false,
+        "error": "Page.content: Target page, context or browser has been closed",
+        "step_goal": "Choose chicken as the protein."
+      }
+    }
+  ]
+}
