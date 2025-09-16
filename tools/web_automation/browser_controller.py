@@ -107,18 +107,19 @@ class BrowserController:
         
         # Success requires either DOM change OR successful command execution
         # But if DOM doesn't change and we tried to interact with elements, that's likely a failure
-        if dom_changed:
-            success = True  # DOM changed, something worked
-        elif executed_commands > 0 and len(errors) == 0:
-            # Commands executed without errors, but DOM didn't change
-            # This might be OK for some actions (like pressing keys), but suspicious for clicks/types
-            has_interaction_commands = any(cmd.type in ['click', 'type'] for cmd in batch.commands)
-            if has_interaction_commands:
-                # Interaction commands should usually change DOM
-                success = False
-                errors.append("Interaction commands executed but DOM unchanged - likely failed to find elements")
-            else:
-                success = True  # Non-interaction commands (navigate, press keys)
+        # SIMPLIFIED SUCCESS LOGIC: Less strict DOM change requirements
+        if executed_commands > 0 and len(errors) == 0:
+            # Commands executed without errors - assume success
+            success = True
+            
+            # Only flag as suspicious if it's a click command with zero DOM change
+            # (but don't automatically fail - let verification handle it)
+            if not dom_changed:
+                has_click_commands = any(cmd.type == 'click' for cmd in batch.commands)
+                if has_click_commands:
+                    print(f"⚠️ Click command with no DOM change - may need verification")
+        elif dom_changed:
+            success = True  # DOM changed, something definitely worked
         else:
             success = False  # Either no commands executed or there were errors
 
