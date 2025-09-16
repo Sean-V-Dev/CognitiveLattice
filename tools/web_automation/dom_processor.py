@@ -22,12 +22,11 @@ except ImportError:
 DEBUG = bool(int(os.getenv("WEB_AGENT_DEBUG", "0")))
 
 # Single DOM truncation constant with goal-aware override
-DOM_TRUNCATE_CHARS = int(os.getenv("WEB_AGENT_DOM_TRUNCATE_CHARS", "50000"))  # Increased from 18000
-DOM_TRUNCATE_CHARS_LOCATION = int(os.getenv("WEB_AGENT_DOM_TRUNCATE_CHARS_LOCATION", "100000"))  # Increased from 70000
-DOM_TRUNCATE_CHARS_ACTION = int(os.getenv("WEB_AGENT_DOM_TRUNCATE_CHARS_ACTION", "150000"))  # Better default for actions
+DOM_TRUNCATE_CHARS = int(os.getenv("WEB_AGENT_DOM_TRUNCATE_CHARS", "18000"))
+DOM_TRUNCATE_CHARS_LOCATION = int(os.getenv("WEB_AGENT_DOM_TRUNCATE_CHARS_LOCATION", "70000"))
 
-# Interactive element processing limits  
-INTERACTIVE_MAX_ITEMS = int(os.getenv("WEB_AGENT_INTERACTIVE_MAX_ITEMS", "200"))  # Increased from 100
+# Interactive element processing limits
+INTERACTIVE_MAX_ITEMS = int(os.getenv("WEB_AGENT_INTERACTIVE_MAX_ITEMS", "100"))
 INTERACTIVE_INCLUDE_TEXT_MAX = int(os.getenv("WEB_AGENT_INTERACTIVE_INCLUDE_TEXT_MAX", "80"))
 
 # Keyword boosts for scoring
@@ -63,50 +62,13 @@ def compress_dom(raw_dom: str, goal: str = "") -> str:
         max_chars = DOM_TRUNCATE_CHARS_LOCATION
         if DEBUG:
             print(f"🎯 Using extended DOM limit ({max_chars}) for location selection")
-    elif any(keyword in goal_lower for keyword in ['add to bag', 'add to cart', 'checkout', 'purchase', 'buy']):
-        max_chars = DOM_TRUNCATE_CHARS_ACTION
-        if DEBUG:
-            print(f"🎯 Using extended DOM limit ({max_chars}) for cart/purchase actions")
     else:
         max_chars = DOM_TRUNCATE_CHARS
     
-    # Pre-clean Vue.js artifacts that might cause lxml issues
-    # OLD: cleaned = re.sub(r"<!----+>", "", raw_dom)  # Remove Vue comment artifacts
-    # NEW: More conservative Vue cleaning
-    cleaned = re.sub(r"<!---->", "", raw_dom)  # Only remove empty Vue comments, not all comments
-    
     # Strip scripts/styles and collapse whitespace
-    cleaned = re.sub(r"<(script|style)[^>]*>.*?</\1>", "", cleaned, flags=re.DOTALL|re.IGNORECASE)
+    cleaned = re.sub(r"<(script|style)[^>]*>.*?</\1>", "", raw_dom, flags=re.DOTALL|re.IGNORECASE)
     cleaned = re.sub(r"\s+", " ", cleaned)
-    
-    # SPECIAL HANDLING: For "add to bag" goals, preserve footer content
-    if any(keyword in goal_lower for keyword in ['add to bag', 'add to cart', 'checkout', 'purchase']):
-        # Look for footer sections that might contain the button
-        footer_patterns = [
-            r'<div[^>]*class="[^"]*footer[^"]*"[^>]*>.*?</div>',
-            r'<footer[^>]*>.*?</footer>',
-            r'<div[^>]*class="[^"]*meal-builder-footer[^"]*"[^>]*>.*?</div>',
-            r'<div[^>]*class="[^"]*actions[^"]*"[^>]*>.*?</div>',
-        ]
-        
-        footer_content = ""
-        for pattern in footer_patterns:
-            matches = re.findall(pattern, cleaned, re.DOTALL | re.IGNORECASE)
-            if matches:
-                footer_content += " ".join(matches)
-                if DEBUG:
-                    print(f"🦶 Found footer content: {len(footer_content)} chars")
-                break
-        
-        # If we found footer content and main content would be truncated
-        if footer_content and len(cleaned) > max_chars:
-            # Take most of the main content + preserve footer
-            main_content = cleaned[:max_chars - len(footer_content) - 100]  # Leave some buffer
-            cleaned = main_content + " " + footer_content
-            if DEBUG:
-                print(f"🦶 Preserved footer for add-to-bag goal: {len(cleaned)} total chars")
-    
-    return cleaned[:max_chars]  # <-- TRUNCATION HAPPENS HERE!
+    return cleaned[:max_chars]
 
 
 def page_signature(raw_dom: str) -> str:
@@ -277,13 +239,7 @@ def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str
 
 def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     """Determine if a div/span is likely clickable based on attributes and content."""
-    
-    # Priority 1: ANY data- attribute with meaningful text is likely interactive
-    has_data_attr = any(k.startswith('data-') for k in attrs.keys())
-    if has_data_attr and len(text.strip()) > 0:
-        return True  # Vue.js, React, and most modern frameworks use data- for interactivity
-    
-    # Priority 2: QA test attributes (highest priority - these are explicit markers)
+    # Priority 1: QA test attributes (highest priority - these are explicit markers)
     qa_attrs = [
         "data-qa-item-name", "data-qa-group-name", "data-qa-name",
         "data-testid", "data-test-id"
@@ -291,7 +247,7 @@ def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     if any(attrs.get(attr) for attr in qa_attrs):
         return True
     
-    # Priority 3: Menu items with data attributes (e.g., Chipotle menu categories)
+    # Priority 2: Menu items with data attributes (e.g., Chipotle menu categories)
     menu_attrs = [
         "data-menu-item", "data-menu-category", "data-item-name", 
         "data-category", "data-meal-type"
@@ -299,7 +255,7 @@ def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     if any(attrs.get(attr) for attr in menu_attrs):
         return True
         
-    # Priority 4: Location/store containers with identifying attributes
+    # Priority 3: Location/store containers with identifying attributes
     location_attrs = [
         "data-qa-restaurant-id", "data-store-id", "data-location-id", 
         "data-shop-id", "data-venue-id", "data-place-id"
@@ -307,28 +263,12 @@ def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     if any(attrs.get(attr) for attr in location_attrs):
         return True
         
-    # Priority 5: Check for explicit click indicators
+    # Priority 3: Check for explicit click indicators
     if attrs.get("onclick"): return True
-    if attrs.get("role") in ["button", "link", "tab", "menuitem", "option"]: return True
+    if attrs.get("role") in ["button", "link", "tab", "menuitem"]: return True
     if "tabindex" in attrs and attrs["tabindex"] != "-1": return True
     
-    # Priority 6: Check for button-like classes (more generic patterns)
-    classes = _safe_get_class_string(attrs).lower()
-    button_patterns = ['btn', 'button', 'click', 'action', 'submit', 'cta', 'link', 
-                       'add-to-bag', 'add-to-cart', 'checkout', 'purchase']
-    if any(pattern in classes for pattern in button_patterns):
-        return True
-    
-    # Priority 7: Check if it has meaningful text that suggests action
-    if text and len(text.strip()) > 0:
-        action_words = ['add', 'submit', 'continue', 'next', 'select', 'choose', 
-                       'buy', 'order', 'checkout', 'proceed', 'confirm', 'save',
-                       'start', 'begin', 'find', 'search', 'go', 'view', 'see']
-        text_lower = text.lower()
-        if any(word in text_lower for word in action_words):
-            return True
-    
-    # Priority 8: Check for navigation/location keywords in text or classes
+    # Check for navigation/location keywords in text or classes
     combined_text = " ".join([
         text.lower(),
         _safe_get_class_string(attrs).lower(),
@@ -359,122 +299,14 @@ def is_clickable_div(attrs: Dict[str, str], text: str) -> bool:
     keyword_count = sum(1 for kw in navigation_keywords if kw in combined_text)
     if keyword_count >= 2:
         return True
+        
+    # Check for button-like classes
+    button_classes = ["btn", "button", "clickable", "interactive", "link"]
+    for btn_class in button_classes:
+        if btn_class in _safe_get_class_string(attrs).lower():
+            return True
             
     return False
-
-
-def _extract_nested_divs(html_content: str, depth: int = 0, max_depth: int = 2) -> List[Element]:
-    """Recursively extract nested div/span elements to catch deeply nested interactive elements."""
-    if depth > max_depth or not html_content:
-        return []
-    
-    elements = []
-    seen_signatures = set()  # Track unique elements to avoid duplicates
-    
-    # Use the original regex but with improved nested matching
-    interactive_div_pattern = re.compile(r"<\s*(div|span)\b([^>]*)>(.*?)</\s*\1\s*>", re.I | re.S)
-    
-    for m in interactive_div_pattern.finditer(html_content):
-        tag = m.group(1).lower()
-        attrs_str = m.group(2)
-        inner_html = m.group(3)
-        
-        # Handle truncated inner HTML by checking if it contains unmatched opening tags
-        if inner_html.count('<div') > inner_html.count('</div>'):
-            # Inner HTML is truncated, try to find proper closing tag
-            start_pos = m.start()
-            tag_name = m.group(1)
-            
-            # Manual search for proper closing tag
-            tag_count = 1
-            search_pos = m.end() - len(f'</{tag_name}>')  # Back up to before the captured close
-            
-            while tag_count > 0 and search_pos < len(html_content):
-                next_open = html_content.find(f'<{tag_name}', search_pos)
-                next_close = html_content.find(f'</{tag_name}>', search_pos)
-                
-                if next_close == -1:
-                    break
-                    
-                if next_open != -1 and next_open < next_close:
-                    tag_count += 1
-                    search_pos = html_content.find('>', next_open) + 1
-                else:
-                    tag_count -= 1
-                    if tag_count == 0:
-                        # Found the real closing tag
-                        inner_start = m.start() + len(m.group(0)) - len(m.group(3)) - len(f'</{tag_name}>')
-                        inner_html = html_content[inner_start:next_close]
-                        break
-                    else:
-                        search_pos = next_close + len(f'</{tag_name}>')
-        
-        # Process attributes safely
-        try:
-            parsed_attrs = _extract_attrs(attrs_str)
-        except Exception:
-            parsed_attrs = {}
-            
-        raw_text = re.sub(r"<[^>]+>", " ", inner_html)
-        text = _extract_meaningful_text(raw_text, parsed_attrs)
-        
-        # Create a unique signature for deduplication
-        classes = parsed_attrs.get('class', '').strip()
-        normalized_text = text.strip()[:50].lower()  # Use first 50 chars, lowercased
-        element_signature = (tag, classes, normalized_text)
-        
-        # Skip if we've seen this exact element before
-        if element_signature in seen_signatures:
-            continue
-            
-        # Skip if text is too generic or empty
-        if not normalized_text or len(normalized_text) < 3:
-            continue
-        
-        if is_clickable_div(parsed_attrs, text):
-            selectors = _candidate_selectors(tag, parsed_attrs, text)
-            
-            # Include relevant attributes and any data-* attributes
-            relevant_attrs = ["id", "class", "name", "role", "aria-label", "onclick", "data-testid", "tabindex"]
-            element_attrs = {}
-            for k in relevant_attrs:
-                if k in parsed_attrs:
-                    element_attrs[k] = parsed_attrs[k]
-            
-            # Add data-* attributes
-            for k in parsed_attrs.keys():
-                if k.startswith("data-"):
-                    element_attrs[k] = parsed_attrs[k]
-            
-            element = Element(
-                tag=tag,
-                text=text,
-                attrs=element_attrs,
-                selectors=selectors
-            )
-            
-            elements.append(element)
-            seen_signatures.add(element_signature)
-        
-        # Only recurse if we have meaningful inner content and haven't hit depth limit
-        # AND we haven't already processed this content
-        if (depth < max_depth and 
-            len(inner_html.strip()) > 20 and 
-            ('<div' in inner_html or '<span' in inner_html)):
-            
-            inner_elements = _extract_nested_divs(inner_html, depth + 1, max_depth)
-            
-            # Filter out duplicates from inner elements too
-            for inner_elem in inner_elements:
-                inner_classes = inner_elem.attrs.get('class', '').strip()
-                inner_text = inner_elem.text.strip()[:50].lower()
-                inner_signature = (inner_elem.tag, inner_classes, inner_text)
-                
-                if inner_signature not in seen_signatures:
-                    elements.append(inner_elem)
-                    seen_signatures.add(inner_signature)
-    
-    return elements
 
 
 def summarize_interactive_elements(html_content: str, max_items: int = INTERACTIVE_MAX_ITEMS) -> List[Element]:
@@ -483,12 +315,7 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
 
     if HAS_LXML:
         try:
-            # Debug lxml parsing explicitly
-            try:
-                tree = html.fromstring(html_content or "")
-            except Exception as parse_e:
-                print(f"⚠️ lxml.fromstring failed: {parse_e}")
-                raise  # Re-raise to fall back to regex
+            tree = html.fromstring(html_content or "")
             
             # 1) Traditional interactive elements (buttons, links, inputs, selects)
             for tag_name in INTERACTIVE_TAGS:
@@ -511,7 +338,8 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                         attrs={k: attrs.get(k, "") for k in relevant_attrs},
                         selectors=selectors
                     ))
-                    # Don't limit here - let scoring handle prioritization
+                    if len(elements) >= max_items:
+                        return elements
 
             
               # 2) Interactive divs/spans - use element identity instead of XPath
@@ -532,8 +360,8 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                     # Try to make the first selector unique; safe aria refinement + XPath fallback
                     if selectors and len(tree.cssselect(selectors[0])) > 1:
                         unique_selector_found = False
-                        if attrs_dict.get('role'):
-                            s = f"{selectors[0]}[role='{attrs_dict['role']}']"
+                        if attrs.get('role'):
+                            s = f"{selectors[0]}[role='{attrs['role']}']"
                             if len(tree.cssselect(s)) == 1:
                                 selectors.insert(0, s)
                                 unique_selector_found = True
@@ -549,22 +377,16 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                         
                         
                         if not unique_selector_found:
-                            # Use XPath as unique fallback  
-                            try:
-                                xpath = tree.getpath(elem)
-                                selectors.insert(0, xpath)
-                            except AttributeError:
-                                # Fallback for lxml versions without getpath
-                                selectors.insert(0, f"{elem.tag}:nth-child({list(elem.getparent()).index(elem) + 1})")
+                            selectors.insert(0, tree.getpath(elem))  # unique XPath fallback
 
                     relevant_attrs = [
                         "id", "class", "name", "role", "aria-label", "onclick", "data-testid", "tabindex"
-                    ] + [k for k in attrs_dict.keys() if k.startswith("data-")]
+                    ] + [k for k in attrs.keys() if k.startswith("data-")]
 
                     elements.append(Element(
                         tag=elem.tag,
                         text=text,
-                        attrs={k: attrs_dict.get(k, "") for k in relevant_attrs},
+                        attrs={k: attrs.get(k, "") for k in relevant_attrs},
                         selectors=selectors
                     ))
                     return True
@@ -578,6 +400,8 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                 "@data-testid or @data-test-id or @data-item-name or @data-name or @data-title or @data-label]"
             )
             for elem in strong_label_cards:
+                if len(elements) >= max_items:
+                    return elements
                 _add_clickable(elem)
 
             # 2b) GENERIC CLICKABLES: no data-* required; needs descendant text/aria/alt
@@ -619,9 +443,10 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                 "]"
             )
             for elem in generic_clickables:
+                if len(elements) >= max_items:
+                    return elements
                 _add_clickable(elem)
 
-            # Don't limit here - let scoring handle prioritization
             return elements
 
             
@@ -630,9 +455,6 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
             # Fall back to regex logic below
     
     # FALLBACK: Regex-based extraction (original logic)
-    if DEBUG:
-        print(f"🔍 Using regex fallback for DOM extraction")
-        
     # Traditional interactive elements (a, button, input, select)
     pattern = re.compile(r"<\s*(a|button|input|select)\b([^>]*)>(.*?)</\s*\1\s*>", re.I | re.S)
     self_closing = re.compile(r"<\s*(input)\b([^>]*)/?>", re.I)  # Only input is self-closing
@@ -675,39 +497,30 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
             selectors=selectors
         ))
 
-    # 3) Capture interactive divs and spans (including nested ones)
-    nested_elements = _extract_nested_divs(html_content)
-    if DEBUG and nested_elements:
-        print(f"🔍 Nested extraction found {len(nested_elements)} additional elements")
-        for elem in nested_elements:
-            if "add-to-bag" in elem.attrs.get("class", "").lower() or "add to bag" in elem.text.lower():
-                print(f"🎯 Found Add-to-Bag element: {elem.text[:50]} | Classes: {elem.attrs.get('class', '')}")
-    elements.extend(nested_elements)
-
-    # DEDUPLICATION: Remove duplicate elements based on text content and classes
-    seen_signatures = set()
-    deduplicated_elements = []
-    
-    for elem in elements:
-        # Create signature based on tag, classes, and first 30 chars of text
-        classes = elem.attrs.get('class', '').strip()
-        text_signature = elem.text.strip()[:30].lower()
-        signature = (elem.tag, classes, text_signature)
+    # 3) Capture interactive divs and spans
+    for m in interactive_div_pattern.finditer(html_content or ""):
+        tag = m.group(1).lower()
+        attrs = _extract_attrs(m.group(2))
+        raw_text = re.sub(r"<[^>]+>", " ", m.group(3))
+        text = _extract_meaningful_text(raw_text, attrs)
         
-        # Skip empty or very short text elements unless they have special classes
-        if (not text_signature or len(text_signature) < 3) and not any(keyword in classes.lower() for keyword in ['add-to-bag', 'button', 'btn']):
-            continue
+        if is_clickable_div(attrs, text):
+            selectors = _candidate_selectors(tag, attrs, text)
             
-        if signature not in seen_signatures:
-            deduplicated_elements.append(elem)
-            seen_signatures.add(signature)
-        elif DEBUG:
-            print(f"🔄 Skipping duplicate: {elem.text[:30]} | {classes}")
-    
-    if DEBUG and len(elements) != len(deduplicated_elements):
-        print(f"📊 Deduplication: {len(elements)} -> {len(deduplicated_elements)} elements")
-    
-    return deduplicated_elements  # Don't slice here - let scoring function handle the limit
+            # Include relevant attributes and any data-* attributes
+            relevant_attrs = ["id", "class", "name", "role", "aria-label", "onclick", "data-testid", "tabindex"]
+            for k in attrs.keys():
+                if k.startswith("data-"):
+                    relevant_attrs.append(k)
+            
+            elements.append(Element(
+                tag=tag,
+                text=text,
+                attrs={k: attrs.get(k, "") for k in relevant_attrs},
+                selectors=selectors
+            ))
+
+    return elements  # Don't slice here - let scoring function handle the limit
 
 
 def score_interactive_elements(elements: List[Element], goal: str) -> List[Element]:
@@ -749,14 +562,8 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
             if kw in all_text: 
                 score += 0.8  # Increased from 0.6 like old system
         
-        # SPECIAL BOOST: Add to Bag / Cart actions (high priority for e-commerce)
-        if "add-to-bag" in classes or "add to bag" in all_text.lower():
-            score += 3.0  # Major boost for add-to-bag elements
-        elif "bag" in all_text.lower() or "cart" in all_text.lower():
-            score += 2.0  # Good boost for bag/cart related elements
-        
         # Extra boost for primary action indicators (matching old system)
-        primary_actions = ["order now", "buy now", "get started", "begin", "add to cart", "checkout", "start", "shop now", "add to bag"]
+        primary_actions = ["order now", "buy now", "get started", "begin", "add to cart", "checkout", "start", "shop now"]
         for action in primary_actions:
             if action in all_text: 
                 score += 1.2  # Strong boost for primary actions
@@ -1037,27 +844,19 @@ async def create_page_context(page, goal: str = "", step_number: int = 1, total_
     # END DEBUG LOGGING
     ########################################################
 
-    # CRITICAL CHANGE: Get full DOM first, extract elements BEFORE compression
-    raw_dom = await page.content()
-    print(f"🔍 FULL DOM length: {len(raw_dom)} characters")
-    
-    # Extract elements from FULL DOM before any truncation
-    elements = summarize_interactive_elements(raw_dom)
-    scored_elements = score_interactive_elements(elements, goal)
-    print(f"🔍 Found {len(elements)} elements from FULL DOM, {len(scored_elements)} after scoring")
-    
-    # Now compress for skeleton/context (but we already have our elements from full DOM)
-    compressed = compress_dom(raw_dom, goal)
+    compressed = compress_dom(await page.content(), goal)
     skeleton = create_dom_skeleton(compressed)
     signature = page_signature(compressed)  # Use compressed DOM for signature
+    elements = summarize_interactive_elements(compressed)
+    scored_elements = score_interactive_elements(elements, goal)
     
     return PageContext(
         url=await page.evaluate("location.href"),
         title=await page.title(),
-        raw_dom=compressed,  # Store compressed version for context
+        raw_dom=compressed,  # Store compressed version
         skeleton=skeleton,
         signature=signature,
-        interactive=scored_elements,  # These came from FULL DOM!
+        interactive=scored_elements,
         step_number=step_number,
         total_steps=total_steps,
         overall_goal=goal,
@@ -1089,16 +888,12 @@ def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "",
     print(f"🔍 DOM DEBUG: Goal: {goal}")
     print(f"🔍 DOM DEBUG: Raw DOM length: {len(raw_dom)} characters")
     
-    # CRITICAL CHANGE: Extract elements from FULL DOM before compression
-    print(f"🔍 FULL DOM Processing: Extracting elements from {len(raw_dom)} character DOM")
-    elements = summarize_interactive_elements(raw_dom)  # Use FULL DOM
-    scored_elements = score_interactive_elements(elements, goal)
-    print(f"🔍 Found {len(elements)} elements from FULL DOM, {len(scored_elements)} after scoring")
-    
-    # Now compress for skeleton/context (but we already have elements from full DOM)
+    # Process DOM to find interactive elements
     compressed = compress_dom(raw_dom, goal)
     signature = page_signature(raw_dom)
     skeleton = create_dom_skeleton(compressed)
+    elements = summarize_interactive_elements(raw_dom)
+    scored_elements = score_interactive_elements(elements, goal)
     
     # Debug all input elements found
     print(f"\n🔍 DOM DEBUG: Found {len(elements)} total interactive elements")
@@ -1110,9 +905,7 @@ def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "",
         placeholder = elem.attrs.get('placeholder', '')
         name = elem.attrs.get('name', '')
         id_val = elem.attrs.get('id', '')
-        # ADD THIS LINE:
-        selectors_preview = elem.selectors[:2] if elem.selectors else []  # Preview first 2 to avoid spam
-        print(f"  {i+1}. <{elem.tag}> type='{input_type}' id='{id_val}' name='{name}' placeholder='{placeholder}' text='{elem.text[:50]}' | Selectors: {selectors_preview}")
+        print(f"  {i+1}. <{elem.tag}> type='{input_type}' id='{id_val}' name='{name}' placeholder='{placeholder}' text='{elem.text[:50]}'")
     
     # Debug scoring results
     print(f"\n🔍 DOM DEBUG: After scoring, {len(scored_elements)} elements made the cut:")
@@ -1122,9 +915,7 @@ def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "",
     for i, elem in enumerate(scored_inputs):
         input_type = elem.attrs.get('type', 'text')
         placeholder = elem.attrs.get('placeholder', '')
-        # ADD THIS LINE:
-        selectors_preview = elem.selectors[:2] if elem.selectors else []
-        print(f"  {i+1}. <{elem.tag}> type='{input_type}' placeholder='{placeholder}' score={getattr(elem, 'score', 'N/A')} | Selectors: {selectors_preview}")
+        print(f"  {i+1}. <{elem.tag}> type='{input_type}' placeholder='{placeholder}' score={getattr(elem, 'score', 'N/A')}")
     
     # Save debug output
     debug_file = f"debug_prompts/dom_debug_step{step_number}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.txt"
@@ -1138,21 +929,18 @@ def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "",
         f.write(f"All Interactive Elements ({len(scored_elements)}):\n")
         f.write("-" * 30 + "\n")
         for i, elem in enumerate(scored_elements):
-            selectors_str = str(elem.selectors[:3]) if elem.selectors else "[]"  # First 3, as str for file
-            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}' | Selectors: {selectors_str}\n")
+            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}'\n")
         
         f.write(f"\nInput/Textarea Elements ({len(input_elements)}):\n")
         f.write("-" * 30 + "\n")
         for i, elem in enumerate(input_elements):
-            selectors_str = str(elem.selectors[:3]) if elem.selectors else "[]"
-            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}' | Selectors: {selectors_str}\n")
+            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}'\n")
         
         f.write(f"\nScored Elements ({len(scored_elements)}):\n")
         f.write("-" * 30 + "\n")
         for i, elem in enumerate(scored_elements):
             score = getattr(elem, 'score', 'N/A')
-            selectors_str = str(elem.selectors[:3]) if elem.selectors else "[]"
-            f.write(f"{i+1:3d}. <{elem.tag}> score={score} {elem.attrs} text='{elem.text[:100]}' | Selectors: {selectors_str}\n")
+            f.write(f"{i+1:3d}. <{elem.tag}> score={score} {elem.attrs} text='{elem.text[:100]}'\n")
     
     print(f"🔍 DOM DEBUG: Full debug report saved: {debug_file}")
     
@@ -1161,10 +949,10 @@ def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "",
     return PageContext(
         url=url,
         title=title or "Untitled",
-        raw_dom=compressed,  # Store compressed version for context
+        raw_dom=compressed,  # Store compressed version
         skeleton=skeleton,
         signature=signature,
-        interactive=scored_elements,  # These came from FULL DOM!
+        interactive=scored_elements,
         step_number=step_number,
         total_steps=total_steps,
         overall_goal=overall_goal or goal,

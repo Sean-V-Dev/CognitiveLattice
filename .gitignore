@@ -234,3 +234,16 @@ debug_prompts/
 browser_profile/
 browser_profiles/
 **/browser_profile*/
+**/chrome_profile*/
+chrome_profile/
+
+# Chrome profile data (system locations - just in case)
+**/AppData/Local/CognitiveLattice/
+**/AppData/Local/Temp/chrome_automation_profile/
+
+# Testing and experimental files
+testing/
+experimental/
+
+# Session files
+cognitive_lattice_interactive_session_*.json

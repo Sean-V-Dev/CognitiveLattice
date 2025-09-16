@@ -272,7 +272,8 @@ class BrowserEngineTool:
             }
     
     async def initialize_browser(self, headless: bool = False, browser_type: str = "chromium", 
-                                load_state: bool = True, restore_last_url: bool = True) -> Dict[str, Any]:
+                                load_state: bool = True, restore_last_url: bool = True, 
+                                use_real_chrome: bool = False, chrome_debug_port: int = 9222) -> Dict[str, Any]:
         """
         Initialize browser session with Playwright and optionally load saved state.
         
@@ -281,6 +282,8 @@ class BrowserEngineTool:
             browser_type: Type of browser (chromium, firefox, webkit)
             load_state: Whether to load saved state (cookies, storage, etc.)
             restore_last_url: Whether to navigate to the last saved URL
+            use_real_chrome: Whether to connect to existing Chrome with debug port (BEST for bot detection bypass)
+            chrome_debug_port: Port for Chrome debug connection (default 9222)
         
         Returns:
             Dict with initialization status and session info
@@ -303,7 +306,120 @@ class BrowserEngineTool:
             
             self.playwright = await async_playwright().start()
 
-            # Launch persistent context when supported (Chromium)
+            # REAL CHROME CONNECTION - Best for bot detection bypass
+            if use_real_chrome:
+                try:
+                    print(f"🔗 Connecting to real Chrome on port {chrome_debug_port}...")
+                    
+                    # Connect to existing Chrome instance via CDP
+                    self.browser = await self.playwright.chromium.connect_over_cdp(f"http://localhost:{chrome_debug_port}")
+                    
+                    # Get existing context or create new one
+                    contexts = self.browser.contexts
+                    if contexts:
+                        self.context = contexts[0]
+                        print(f"✅ Connected to existing Chrome context with {len(self.context.pages)} pages")
+                        
+                        # Get existing page or create new one, preferring existing pages
+                        pages = self.context.pages
+                        if pages:
+                            # Use the first existing page (don't create new)
+                            self.page = pages[0]
+                            print(f"🔗 Using existing page: {self.page.url}")
+                        else:
+                            self.page = await self.context.new_page()
+                            print("📄 Created new page in existing context")
+                    else:
+                        self.context = await self.browser.new_context()
+                        self.page = await self.context.new_page()
+                        print("✅ Created new context and page in existing Chrome")
+                    
+                    # Generate session ID
+                    import uuid
+                    self.session_id = str(uuid.uuid4())[:8]
+                    
+                    print("🎉 Successfully connected to real Chrome - MAXIMUM bot detection bypass!")
+                    
+                    return {
+                        'status': 'success',
+                        'session_id': self.session_id,
+                        'browser_type': 'real_chrome',
+                        'headless': False,
+                        'profile_name': self.profile_name,
+                        'message': f'Connected to real Chrome on port {chrome_debug_port} - Best bot detection bypass!'
+                    }
+                    
+                except Exception as e:
+                    print(f"❌ Failed to connect to real Chrome: {e}")
+                    print("� Auto-starting Chrome with working configuration...")
+                    
+                    # AUTO-FALLBACK: Start Chrome with working configuration
+                    try:
+                        print("🚀 Auto-starting Chrome with persistent profile and working bot detection flags...")
+                        
+                        # Import the best-of-both-worlds Chrome startup
+                        from .best_of_both_worlds_chrome import start_chrome_with_persistent_profile_and_working_flags
+                        success = start_chrome_with_persistent_profile_and_working_flags()
+                        
+                        if success:
+                            import asyncio
+                            await asyncio.sleep(3)  # Give Chrome time to start
+                            
+                            # Try connecting to the Chrome instance we just started
+                            self.browser = await self.playwright.chromium.connect_over_cdp(f"http://localhost:{chrome_debug_port}")
+                            
+                            # Get existing contexts from the Chrome we just started
+                            contexts = self.browser.contexts
+                            if contexts:
+                                self.context = contexts[0]
+                                print(f"✅ Connected to auto-started Chrome context with {len(self.context.pages)} pages")
+                                
+                                # Get existing page or create new one, preferring existing pages
+                                pages = self.context.pages
+                                if pages:
+                                    # Use the first existing page (don't create new)
+                                    self.page = pages[0]
+                                    print(f"🔗 Using existing page in auto-started Chrome: {self.page.url}")
+                                else:
+                                    self.page = await self.context.new_page()
+                                    print("📄 Created new page in auto-started Chrome context")
+                            else:
+                                self.context = await self.browser.new_context()
+                                self.page = await self.context.new_page()
+                                print("✅ Created new context and page in auto-started Chrome")
+                            
+                            import uuid
+                            self.session_id = str(uuid.uuid4())[:8]
+                            
+                            print("✅ Auto-started Chrome with persistent profile and connected successfully!")
+                            
+                            return {
+                                'status': 'success',
+                                'session_id': self.session_id,
+                                'browser_type': 'real_chrome_auto_started_persistent',
+                                'headless': False,
+                                'profile_name': self.profile_name,
+                                'message': f'Auto-started Chrome with persistent profile on port {chrome_debug_port}'
+                            }
+                        else:
+                            raise Exception("Failed to auto-start Chrome with persistent profile")
+                            
+                    except Exception as fallback_error:
+                        print(f"❌ Auto-start also failed: {fallback_error}")
+                        return {
+                            'status': 'error',
+                            'error': str(fallback_error),
+                            'message': f'Failed to connect to real Chrome and auto-start also failed. Real Chrome required but unavailable.'
+                        }
+
+            # FALLBACK: Launch new Playwright browser instance (only if NOT using real Chrome)
+            if use_real_chrome:
+                # If we get here with use_real_chrome=True, something went wrong above
+                return {
+                    'status': 'error', 
+                    'message': 'Real Chrome was requested but could not be started or connected to.'
+                }
+                
             launch_args = [
                 '--no-first-run',
                 '--no-default-browser-check',

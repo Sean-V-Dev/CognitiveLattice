@@ -5,14 +5,22 @@ from .browser_engine_tool import BrowserEngineTool
 from datetime import datetime
 
 class BrowserController:
-    def __init__(self, profile_name: str = "default", headless: bool = False, browser_type: str = "chromium"):
+    def __init__(self, profile_name: str = "default", headless: bool = False, browser_type: str = "chromium", 
+                 use_real_chrome: bool = False, chrome_debug_port: int = 9222):
         self._engine = BrowserEngineTool(profile_name=profile_name)
         self._profile_name = profile_name
         self._headless = headless
         self._browser_type = browser_type
+        self._use_real_chrome = use_real_chrome
+        self._chrome_debug_port = chrome_debug_port
 
     async def initialize(self) -> None:
-        res = await self._engine.initialize_browser(headless=self._headless, browser_type=self._browser_type)
+        res = await self._engine.initialize_browser(
+            headless=self._headless, 
+            browser_type=self._browser_type,
+            use_real_chrome=self._use_real_chrome,
+            chrome_debug_port=self._chrome_debug_port
+        )
         if res.get("status") != "success":
             raise RuntimeError(f"Browser init failed: {res}")
 

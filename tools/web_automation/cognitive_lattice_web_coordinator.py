@@ -23,15 +23,17 @@ class CognitiveLatticeWebCoordinator:
     Manages task creation, progress tracking, and epistemic memory.
     """
     
-    def __init__(self, external_client=None, cognitive_lattice=None, enable_stealth=True):
+    def __init__(self, external_client=None, cognitive_lattice=None, enable_stealth=True, use_real_chrome=True):
         self.external_client = external_client
         self.lattice = cognitive_lattice
         
-        # Create browser controller with stealth settings
+        # Create browser controller with stealth settings and real Chrome
         self.browser = BrowserController(
             profile_name="default",
             headless=not enable_stealth,  # headless opposite of stealth for now
-            browser_type="chromium"
+            browser_type="chromium",
+            use_real_chrome=use_real_chrome,  # Use real Chrome for bot detection bypass
+            chrome_debug_port=9222
         )
         
         # Create safety manager with default policies
@@ -464,7 +466,8 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
 
 
 # Backward-compatible function that maintains existing API
-async def execute_cognitive_web_task(goal: str, url: str, external_client=None, cognitive_lattice=None) -> Dict[str, Any]:
+async def execute_cognitive_web_task(goal: str, url: str, external_client=None, cognitive_lattice=None, 
+                                    use_real_chrome: bool = True) -> Dict[str, Any]:
     """
     Backward-compatible function for executing cognitive web tasks.
     
@@ -473,13 +476,15 @@ async def execute_cognitive_web_task(goal: str, url: str, external_client=None, 
         url: Target URL to navigate to
         external_client: LLM client for reasoning
         cognitive_lattice: Lattice instance for memory management
+        use_real_chrome: Whether to use real Chrome for bot detection bypass (default True)
         
     Returns:
         Dict with status and results
     """
     coordinator = CognitiveLatticeWebCoordinator(
         external_client=external_client,
-        cognitive_lattice=cognitive_lattice
+        cognitive_lattice=cognitive_lattice,
+        use_real_chrome=use_real_chrome
     )
     
     # Convert single goal to objectives list for internal API
