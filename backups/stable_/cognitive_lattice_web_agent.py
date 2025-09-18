@@ -403,7 +403,7 @@ class CognitiveLatticeWebAgent:
             
             # CAPTURE DOM AFTER ACTION & ANALYZE CHANGES
             try:
-                await asyncio.sleep(3.5)  # Increased wait for search results and dynamic content
+                await asyncio.sleep(1.5)  # Reduced from 3.5s to 1.5s for faster testing
                 dom_after = await self.browser.page.content()
                 dom_hash_after = hash_dom(compress_dom(dom_after))
             except Exception as e:
@@ -962,7 +962,7 @@ Output JSON:
         if target_url and step_context.get("current_step_index", 0) == 0:
             print(f"🌐 Navigating to: {target_url}")
             await self.browser.navigate_to_url(target_url)
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)  # Reduced from 2s to 1s for faster testing
             
             # Update lattice with navigation step (marked as successful)
             self.update_lattice_step(

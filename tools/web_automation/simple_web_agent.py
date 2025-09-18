@@ -312,7 +312,7 @@ class SimpleWebAgent:
         outcome,
         dom_changed: bool,
         ctx: PageContext,
-        wait_ms: int = 1200
+        wait_ms: int = 500  # Reduced from 1200ms to 500ms for faster testing
     ) -> Tuple[bool, Dict[str, Any]]:
         """
         Post-action verifier for 'select location' style goals.

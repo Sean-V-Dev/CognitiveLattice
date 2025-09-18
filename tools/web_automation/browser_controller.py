@@ -33,16 +33,16 @@ class BrowserController:
         if not self._engine.page:
             raise RuntimeError("Browser not initialized")
         
-        # Wait for dynamic content to load (3 seconds max)
+        # Wait for dynamic content to load (1.5 seconds max - reduced for faster testing)
         try:
-            await self._engine.page.wait_for_selector('[data-qa-group-name]', timeout=3000)  # 3s for bowl elements
+            await self._engine.page.wait_for_selector('[data-qa-group-name]', timeout=1500)  # 1.5s for bowl elements
         except:
             # If selector not found, continue anyway (don't fail the whole operation)
             pass
         
-        # Wait for network to be idle (3 seconds max)
+        # Wait for network to be idle (1.5 seconds max - reduced for faster testing)
         try:
-            await self._engine.page.wait_for_load_state('networkidle', timeout=3000)  # 3s for AJAX completion
+            await self._engine.page.wait_for_load_state('networkidle', timeout=1500)  # 1.5s for AJAX completion
         except:
             # If network doesn't settle, continue anyway
             pass
@@ -93,9 +93,9 @@ class BrowserController:
                     errors.append(f"Unsupported or malformed command: {cmd}")
             except Exception as e:
                 errors.append(str(e))
-        # small debounce for DOM to settle
+        # small debounce for DOM to settle (reduced from 400ms to 200ms)
         if self._engine.page:
-            await self._engine.page.wait_for_timeout(400)
+            await self._engine.page.wait_for_timeout(200)
         duration_ms = int((datetime.now() - start).total_seconds() * 1000)
 
         after_html, _ = await self.get_current_dom()

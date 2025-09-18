@@ -528,9 +528,9 @@ class BrowserEngineTool:
             # Navigate to URL
             response = await self.page.goto(url, wait_until='domcontentloaded' if wait_for_load else 'commit')
             
-            # Wait a bit more for dynamic content
+            # Wait a bit more for dynamic content (reduced from 2000ms to 1000ms)
             if wait_for_load:
-                await self.page.wait_for_timeout(2000)
+                await self.page.wait_for_timeout(1000)
             
             # Get page info
             title = await self.page.title()
@@ -626,8 +626,8 @@ class BrowserEngineTool:
             await locator.scroll_into_view_if_needed()
             await locator.click(timeout=timeout)
             
-            # Wait a moment for any resulting page changes
-            await self.page.wait_for_timeout(1000)
+            # Wait a moment for any resulting page changes (reduced from 1000ms to 500ms)
+            await self.page.wait_for_timeout(500)
             
             return {
                 'status': 'success',
@@ -642,7 +642,7 @@ class BrowserEngineTool:
                 await locator.scroll_into_view_if_needed()
                 await locator.click(timeout=timeout, force=True)
                 
-                await self.page.wait_for_timeout(1000)
+                await self.page.wait_for_timeout(500)  # Reduced from 1000ms to 500ms
                 
                 return {
                     'status': 'success',
