@@ -16,9 +16,11 @@ Pay attention to DOM signature changes and success/failure patterns from recent 
 
 SELECTION POLICY:
 
-TOP-10 GATE (HARD):
-- You MUST choose from the top 10 candidates unless an OVERRIDE is justified.
-- If you select a candidate outside the top 10, you MUST include 'override_reason' in your response.
+CANDIDATE MATCHING:
+- You will be shown candidates in order of relevance score (highest first).
+- If NONE of the shown candidates match your goal, respond with: {"no_match": "NONE"}
+- This will trigger showing you more candidates to choose from.
+- Only select a candidate if it clearly matches your goal and intent.
 
 GOAL LEXICON (derive per step):
 - Extract target nouns from the goal (things to click/select), plus 2–6 common UI variants.
@@ -32,7 +34,7 @@ DISQUALIFIERS (reject unless explicitly requested by the goal):
 - Prebuilt/lifestyle/celebrity items if the goal is custom building (e.g., "Lifestyle Bowl", "The ___ Bowl").
 - CRITICAL: Pre-made product names when goal asks for 'custom' (e.g., avoid 'Deluxe Burger' if goal is 'build custom burger').
 
-PREFERENCES (apply within top-10):
+PREFERENCES (apply within shown candidates):
 1) GOAL-NOUN FIRST: Prefer candidates whose TEXT or ATTRIBUTES contain a target noun or its variants.
    - If goal contains 'custom/build/create', STRONGLY prefer customization tools over product names.
    - Look for phrases like: 'Build Your Own', 'Create', 'Customize', 'Start Building', generic category names.
@@ -43,14 +45,13 @@ PREFERENCES (apply within top-10):
 3) STEP-COST: Prefer the option most likely to land on the next expected state with the fewest steps.
 4) DE-LOOP: Do not repeat selectors that recently failed (see breadcrumbs).
 
-OVERRIDE PROTOCOL (RARE):
-- Only if no top-10 candidate matches the goal lexicon nouns OR all such matches are disqualified.
-- If you override, you MUST include 'override_reason' citing ≥2 concrete signals.
-- Example: "no custom/build match in top-10; candidate #33 has exact 'Build Your Own' text + data-qa attribute"
+NO MATCH PROTOCOL:
+- If none of the shown candidates clearly match your goal, respond: {"no_match": "NONE"}
+- This allows the system to show you more candidates to choose from
+- Only use this if you genuinely cannot find a suitable match in the current candidates
 
 OUTPUT REQUIREMENTS:
 - Return 1–3 JSON commands. Each must include a 'why' citing: (a) goal-noun match, (b) semantic selector evidence, (c) disqualifiers avoided.
-- Include 'override_reason' if outside top-10.
 
 CYCLE PREVENTION:
 If breadcrumbs or recent actions show you've tried the same element multiple times, DO NOT repeat that action.
@@ -291,9 +292,16 @@ def _build_lattice_guidance(page_context: PageContext) -> str:
     return "\n".join(guidance_parts) if guidance_parts else "LATTICE: No specific guidance available"
 
 
-def _shape_candidates(ctx: PageContext) -> List[Dict[str, Any]]:
+def _shape_candidates(ctx: PageContext, pass_number: int = 1) -> List[Dict[str, Any]]:
+    """Shape candidates for prompt, with progressive disclosure based on pass number.
+    
+    Args:
+        ctx: Page context with interactive elements
+        pass_number: Current pass number (1=first 10, 2=first 20, etc.)
+    """
+    max_candidates = min(pass_number * 10, MAX_CANDIDATES)
     shaped = []
-    for el in ctx.interactive[:MAX_CANDIDATES]:
+    for el in ctx.interactive[:max_candidates]:
         shaped.append({
             "tag": el.tag,
             "text": el.text,
@@ -303,12 +311,16 @@ def _shape_candidates(ctx: PageContext) -> List[Dict[str, Any]]:
     return shaped
 
 
-def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dict[str, Any]] | None = None, breadcrumbs: List[str] | None = None) -> str:
-    """Assemble a rich, context-aware planning prompt with lattice integration."""
+def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dict[str, Any]] | None = None, breadcrumbs: List[str] | None = None, pass_number: int = 1) -> str:
+    """Assemble a rich, context-aware planning prompt with lattice integration and progressive candidate disclosure."""
     recent_actions = recent_actions or []
     breadcrumbs = breadcrumbs or []
     skeleton = (ctx.skeleton or "")[:MAX_SKELETON_CHARS]
-    candidates = _shape_candidates(ctx)
+    candidates = _shape_candidates(ctx, pass_number)
+    
+    # Calculate the candidate range for this pass
+    candidate_count = len(candidates)
+    max_for_pass = pass_number * 10
 
     lines: List[str] = []
     lines.append("System:\n" + SYSTEM_INSTRUCTIONS)
@@ -339,7 +351,12 @@ def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dic
     lines.append("--- DOM Skeleton (truncated) ---\n" + skeleton)
     
     # Ranked candidates with discipline reminders
-    lines.append("--- Ranked Candidates (USE THESE SELECTORS) ---")
+    if pass_number == 1:
+        lines.append(f"--- Ranked Candidates (Pass {pass_number}: Top {candidate_count} shown) ---")
+    else:
+        lines.append(f"--- Ranked Candidates (Pass {pass_number}: Top {candidate_count} shown - expanded from previous pass) ---")
+        lines.append("IMPORTANT: If none of these candidates match your goal, respond with: {\"no_match\": \"NONE\"}")
+    
     for i, c in enumerate(candidates, 1):
         sels = ", ".join(c["selectors"])
         text = c["text"] or ""
@@ -374,28 +391,35 @@ def build_reasoning_prompt(goal: str, ctx: PageContext, recent_actions: List[Dic
     response_format = """--- Respond ---
 Return ONLY valid JSON with these exact fields:
 
-EXAMPLE (Top-10 selection):
+EXAMPLE (Standard selection):
 {
-  "commands": [{"type": "click", "selector": "div[data-qa-group-name='Build Your Own']"}],
+  "commands": [{"type": "click", "selector": "div[data-qa-group-name='Burrito Bowl']"}],
   "confidence": 0.95,
-  "rationale": "Candidate #3 matches goal for custom bowl building with data-qa selector",
-  "breadcrumb": "Selected Build Your Own option to start custom bowl"
+  "rationale": "Candidate #1 matches goal 'bowl' with highest score and data-qa selector",
+  "breadcrumb": "Selected burrito bowl option"
 }
 
-EXAMPLE (Override required - outside top-10):
+EXAMPLE (No suitable match found):
 {
-  "commands": [{"type": "click", "selector": "div[data-qa-group-name='Build Your Own']"}],
-  "confidence": 0.85,
-  "rationale": "Candidate #33 provides exact Build Your Own functionality for custom goal",
-  "override_reason": "No customization options in top-10; candidate #33 has exact 'Build Your Own' text + data-qa-group-name attribute for custom bowl building",
-  "breadcrumb": "Selected Build Your Own option to start custom bowl"
+  "no_match": "NONE"
+}
+
+EXAMPLE (Typing action):
+{
+  "commands": [
+    {"type": "type", "selector": "input[placeholder*='ZIP']", "text": "45305"},
+    {"type": "press", "key": "Enter"}
+  ],
+  "confidence": 0.90,
+  "rationale": "Found ZIP code input field matching location search goal",
+  "breadcrumb": "Entered ZIP code 45305"
 }
 
 CRITICAL RULES:
-- MUST stay within top-10 unless override_reason provided
-- MUST include override_reason if selecting candidate > #10
-- override_reason must cite ≥2 concrete signals
+- Select candidates that clearly match your goal and intent
+- If no candidates match, respond with: {"no_match": "NONE"}
 - Focus on goal-noun matches and semantic selectors
+- Use data-* attributes when available
 
 TYPING PROTOCOL: Always follow 'type' with 'press Enter' for search fields.
 BREADCRUMB: Write a brief note for your future self about what you just accomplished. Keep it simple: 'Selected menu item', 'Added ingredient', 'Entered search term', etc. This helps maintain context across the workflow.

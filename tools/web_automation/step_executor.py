@@ -80,99 +80,132 @@ class StepExecutor:
         breadcrumbs: Optional[List[str]] = None,
     ) -> StepOutcome:
         """
-        1) Build prompt from PageContext
+        1) Build prompt from PageContext with progressive candidate disclosure
         2) Ask LLM for next 1–3 commands (JSON)
-        3) Safety pre-check (if provided)
-        4) Execute batch via BrowserController
-        5) Return Evidence (+ confidence/rationale)
+        3) If LLM says "NONE", increase candidates and retry
+        4) Safety pre-check (if provided)
+        5) Execute batch via BrowserController
+        6) Return Evidence (+ confidence/rationale)
         """
-        # 1) Build prompt
-        prompt = build_reasoning_prompt(goal, ctx, recent_actions or [], breadcrumbs or [])
+        
+        # Progressive candidate disclosure: start with 10, expand if needed
+        max_passes = 5  # Up to 50 candidates (5 x 10)
+        raw_response = None  # Initialize for the loop
+        
+        for pass_number in range(1, max_passes + 1):
+            print(f"🔍 Candidate pass {pass_number} (showing top {pass_number * 10} candidates)")
+            
+            # 1) Build prompt with current pass number
+            prompt = build_reasoning_prompt(goal, ctx, recent_actions or [], breadcrumbs or [], pass_number)
+            
+            # ############################################################################# 
+            # DEBUG: Save prompt to file for troubleshooting
+            # ############################################################################# 
+            # TODO: REMOVE OR COMMENT OUT ALL DEBUG CODE BELOW BEFORE PRODUCTION
+            # ############################################################################# 
+            try:
+                import os
+                debug_dir = os.path.join(os.getcwd(), "debug_prompts")
+                os.makedirs(debug_dir, exist_ok=True)
+                
+                from datetime import datetime
+                # Create unique filename with step info and microsecond precision
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                step_info = getattr(ctx, 'step_number', getattr(ctx, 'step', 'unknown'))
+                total_info = getattr(ctx, 'total_steps', 'unknown')
+                debug_file = os.path.join(debug_dir, f"web_prompt_step{step_info}of{total_info}_pass{pass_number}_{timestamp}.txt")
+                
+                with open(debug_file, 'w', encoding='utf-8') as f:
+                    f.write("################################################################################\n")
+                    f.write(f"FULL PROMPT SENT TO EXTERNAL API - {datetime.now()}\n")
+                    f.write("################################################################################\n")
+                    f.write(f"Step: {step_info} of {total_info}\n")
+                    f.write(f"Pass: {pass_number} (candidates: {pass_number * 10})\n")
+                    f.write(f"Goal: {goal}\n")
+                    f.write(f"URL: {ctx.url}\n")
+                    f.write(f"Page Title: {ctx.title}\n")
+                    f.write(f"Page Signature: {ctx.signature}\n")
+                    f.write(f"Overall Goal: {getattr(ctx, 'overall_goal', 'not specified')}\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("FULL PROMPT CONTENT:\n")
+                    f.write("=" * 80 + "\n")
+                    f.write(prompt)
+                    f.write("\n" + "=" * 80 + "\n")
+                    f.write(f"Prompt length: {len(prompt)} characters\n")
+                    f.write("################################################################################\n")
+                
+                print(f"🐛 DEBUG: Prompt saved to {os.path.abspath(debug_file)}")
+            except Exception as debug_error:
+                print(f"⚠️ DEBUG: Failed to save prompt: {debug_error}")
+            # ############################################################################# 
+            
+            # 2) Ask LLM
+            try:
+                raw_response = self.llm.query_external_api(prompt)
+                
+                # Check if LLM said "NONE" (no suitable candidates)
+                if '"no_match"' in raw_response and '"NONE"' in raw_response:
+                    print(f"🔄 Pass {pass_number}: LLM found no suitable candidates, expanding to pass {pass_number + 1}")
+                    if pass_number == max_passes:
+                        print(f"⚠️ Reached maximum passes ({max_passes}), proceeding with best effort")
+                        # Continue with the "NONE" response to handle gracefully
+                        break
+                    continue  # Try next pass with more candidates
+                
+                # LLM found a candidate, proceed with execution
+                print(f"✅ Pass {pass_number}: LLM selected a candidate")
+                break
+                
+            except Exception as llm_error:
+                print(f"❌ Pass {pass_number}: LLM query failed: {llm_error}")
+                if pass_number == max_passes:
+                    raise  # Re-raise on final pass
+                continue  # Try next pass
+        
+        # Continue with normal execution flow using the final raw_response
+        # Handle case where all passes failed
+        if raw_response is None:
+            raw_response = '{"commands": [{"type": "noop"}], "confidence": 0.1, "rationale": "All candidate passes failed"}'
         
         # ############################################################################# 
-        # DEBUG: Save prompt to file for troubleshooting
+        # DEBUG: Save LLM response to file for troubleshooting
         # ############################################################################# 
-        # TODO: REMOVE OR COMMENT OUT ALL DEBUG CODE BELOW BEFORE PRODUCTION
+        # TODO: REMOVE OR COMMENT OUT THIS DEBUG CODE LATER
         # ############################################################################# 
         try:
-            import os
-            debug_dir = os.path.join(os.getcwd(), "debug_prompts")
-            os.makedirs(debug_dir, exist_ok=True)
-            
-            from datetime import datetime
-            # Create unique filename with step info and microsecond precision
+            # Use same timestamp and step info for matching prompt/response pairs
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             step_info = getattr(ctx, 'step_number', getattr(ctx, 'step', 'unknown'))
             total_info = getattr(ctx, 'total_steps', 'unknown')
-            debug_file = os.path.join(debug_dir, f"web_prompt_step{step_info}of{total_info}_{timestamp}.txt")
+            debug_file = os.path.join(debug_dir, f"web_response_step{step_info}of{total_info}_{timestamp}.txt")
             
             with open(debug_file, 'w', encoding='utf-8') as f:
                 f.write("################################################################################\n")
-                f.write(f"FULL PROMPT SENT TO EXTERNAL API - {datetime.now()}\n")
+                f.write(f"FULL RESPONSE FROM EXTERNAL API - {datetime.now()}\n")
                 f.write("################################################################################\n")
                 f.write(f"Step: {step_info} of {total_info}\n")
                 f.write(f"Goal: {goal}\n")
                 f.write(f"URL: {ctx.url}\n")
-                f.write(f"Page Title: {ctx.title}\n")
-                f.write(f"Page Signature: {ctx.signature}\n")
                 f.write(f"Overall Goal: {getattr(ctx, 'overall_goal', 'not specified')}\n")
                 f.write("=" * 80 + "\n")
-                f.write("FULL PROMPT CONTENT:\n")
+                f.write("RAW LLM RESPONSE CONTENT:\n")
                 f.write("=" * 80 + "\n")
-                f.write(prompt)
+                f.write(raw_response)
                 f.write("\n" + "=" * 80 + "\n")
-                f.write(f"Prompt length: {len(prompt)} characters\n")
+                f.write(f"Response length: {len(raw_response)} characters\n")
                 f.write("################################################################################\n")
             
-            print(f"🐛 DEBUG: Prompt saved to {os.path.abspath(debug_file)}")
+            print(f"🐛 DEBUG: Response saved to {os.path.abspath(debug_file)}")
         except Exception as debug_error:
-            print(f"⚠️ DEBUG: Failed to save prompt: {debug_error}")
-        # ############################################################################# 
-        # END DEBUG CODE - REMOVE BEFORE PRODUCTION
-        # ############################################################################# 
-
-        # 2) Query LLM (expects JSON result)
-        try:
-            raw_response = self.llm.query_external_api(prompt)
-            
-            # ############################################################################# 
-            # DEBUG: Save LLM response to file for troubleshooting
-            # ############################################################################# 
-            # TODO: REMOVE OR COMMENT OUT THIS DEBUG CODE LATER
-            # ############################################################################# 
-            try:
-                # Use same timestamp and step info for matching prompt/response pairs
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                step_info = getattr(ctx, 'step_number', getattr(ctx, 'step', 'unknown'))
-                total_info = getattr(ctx, 'total_steps', 'unknown')
-                debug_file = os.path.join(debug_dir, f"web_response_step{step_info}of{total_info}_{timestamp}.txt")
-                
-                with open(debug_file, 'w', encoding='utf-8') as f:
-                    f.write("################################################################################\n")
-                    f.write(f"FULL RESPONSE FROM EXTERNAL API - {datetime.now()}\n")
-                    f.write("################################################################################\n")
-                    f.write(f"Step: {step_info} of {total_info}\n")
-                    f.write(f"Goal: {goal}\n")
-                    f.write(f"URL: {ctx.url}\n")
-                    f.write(f"Overall Goal: {getattr(ctx, 'overall_goal', 'not specified')}\n")
-                    f.write("=" * 80 + "\n")
-                    f.write("RAW LLM RESPONSE CONTENT:\n")
-                    f.write("=" * 80 + "\n")
-                    f.write(raw_response)
-                    f.write("\n" + "=" * 80 + "\n")
-                    f.write(f"Response length: {len(raw_response)} characters\n")
-                    f.write("################################################################################\n")
-                
-                print(f"🐛 DEBUG: Response saved to {os.path.abspath(debug_file)}")
-            except Exception as debug_error:
-                print(f"⚠️ DEBUG: Failed to save response: {debug_error}")
+            print(f"⚠️ DEBUG: Failed to save response: {debug_error}")
             # ############################################################################# 
             # END DEBUG CODE - REMOVE BEFORE PRODUCTION
             # ############################################################################# 
-            
-            print(f"🤖 LLM Raw Response: {raw_response[:200]}...")  # Debug output
-            
-            # Try to extract JSON from response (in case there's extra text)
+        
+        print(f"🤖 LLM Raw Response: {raw_response[:200]}...")  # Debug output
+        
+        # Try to extract JSON from response (in case there's extra text)
+        try:
             json_start = raw_response.find('{')
             json_end = raw_response.rfind('}') + 1
             

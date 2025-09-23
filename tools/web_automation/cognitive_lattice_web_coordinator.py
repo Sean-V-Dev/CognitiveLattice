@@ -80,7 +80,7 @@ Completed Steps:
             except Exception as e:
                 lattice_context = f"Error reading lattice: {e}"
         
-        # Use the proven planning prompt from the old system
+        # Use the enhanced planning prompt that handles both action and observation steps
         plan_prompt = f"""You are an expert autonomous web agent. Your task is to create a concise, step-by-step plan to achieve the user's high-level goal.
 
 **User's Goal:** "{goal}"
@@ -94,9 +94,22 @@ Completed Steps:
 2. **Analyze the User's Goal:** Break down the user's request into its core components.
 3. **Start with Action:** Assume the browser is already on the target website. Focus on actionable steps, not navigation setup.
 4. **Logical Steps:** Think step-by-step. What is the most logical sequence of actions a human would take?
-5. **Avoid Redundancy:** Each step should be distinctly different. Don't create steps that would repeat the same action or accomplish something already shown as completed in your lattice.
-6. **Describe Actions, Not Code:** Phrase each step as a high-level goal (e.g., "Find the search bar and enter the zip code") rather than a specific command (e.g., "Click the div with id='search'").
-7. **Be Specific:** If the user mentions specific data (like ZIP codes, items, names), include them in the plan steps.
+5. **Include Both Action and Observation Steps:** Your plan should include:
+   - **Action Steps:** Navigate, click, type, select (e.g., "Click the product option", "Enter name as 'John'")
+   - **Observation Steps:** Look for elements, verify content, extract information, report findings (e.g., "Look for the item listing and verify details", "Find the total price and report it")
+6. **Avoid Redundancy:** Each step should be distinctly different. Don't create steps that would repeat the same action or accomplish something already shown as completed in your lattice.
+7. **Describe Goals, Not Technical Details:** Phrase each step as a high-level goal (e.g., "Find the search bar and enter the location") rather than a specific command (e.g., "Click the div with id='search'").
+8. **Be Specific:** If the user mentions specific data (like ZIP codes, items, names), include them in the plan steps.
+9. **End with Verification:** If the user asks to verify or report something, include that as the final step(s).
+
+**Step Types You Can Use:**
+- **Navigation:** "Go to the product section", "Navigate to checkout"
+- **Selection:** "Select the desired option", "Choose the preferred item"
+- **Input:** "Enter the customer name", "Type the location code"
+- **Interaction:** "Click the add to cart button", "Press enter to save"
+- **Observation:** "Look for the item listing in the cart", "Find the details list"
+- **Verification:** "Confirm that the selected items are listed", "Verify the order was placed correctly"
+- **Reporting:** "Report the total price", "Extract and display the subtotal"
 
 **Output Format:**
 Return a JSON object with a single key "plan" containing a list of simple, actionable goal strings.
@@ -105,7 +118,7 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
 {{
     "plan": [
         "Click on the 'Find Locations' or 'Store Locator' button to access the location search.",
-        "Enter the zip code {goal.split('45305')[0] + '45305' if '45305' in goal else 'specified location'} to search for nearby locations.",
+        "Enter the specified location code to search for nearby locations.",
         "Submit the search by pressing Enter or clicking search button.",
         "Select the first available location from the search results."
     ]
@@ -235,17 +248,32 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                                     break
                 
                 # Execute this specific step using enhanced context
-                step_result = await self.web_agent.execute_single_step(
-                    step_goal=step_description, 
-                    current_url=current_url,
-                    step_number=step_num,
-                    total_steps=len(web_steps),
-                    overall_goal=primary_goal,
-                    recent_events=recent_events,
-                    previous_signature=previous_signature,
-                    lattice_state=lattice_state,
-                    breadcrumbs=breadcrumbs
-                )
+                # Check if this is an observation/reporting step
+                observation_keywords = ['look for', 'find and report', 'extract', 'verify', 'confirm', 'check', 'report', 'display', 'show', 'observe']
+                is_observation_step = any(keyword in step_description.lower() for keyword in observation_keywords)
+                
+                if is_observation_step:
+                    print(f"📊 Detected observation step - using DOM analysis approach")
+                    step_result = await self._execute_observation_step(
+                        step_description=step_description,
+                        current_url=current_url,
+                        step_number=step_num,
+                        overall_goal=primary_goal,
+                        breadcrumbs=breadcrumbs
+                    )
+                else:
+                    print(f"🎯 Detected action step - using web agent approach")
+                    step_result = await self.web_agent.execute_single_step(
+                        step_goal=step_description, 
+                        current_url=current_url,
+                        step_number=step_num,
+                        total_steps=len(web_steps),
+                        overall_goal=primary_goal,
+                        recent_events=recent_events,
+                        previous_signature=previous_signature,
+                        lattice_state=lattice_state,
+                        breadcrumbs=breadcrumbs
+                    )
                 
                 # Check step success with enhanced logic
                 technical_success = step_result.get("success", False)
@@ -463,6 +491,108 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
         except Exception as e:
             print(f"⚠️ Error checking logical success: {e}")
             return None
+
+    async def _execute_observation_step(self, step_description: str, current_url: str, 
+                                       step_number: int, overall_goal: str, breadcrumbs: List[str]) -> Dict[str, Any]:
+        """
+        Execute an observation/reporting step that requires DOM analysis rather than clicking.
+        
+        Args:
+            step_description: Natural language description of the observation task
+            current_url: Current page URL
+            step_number: Current step number
+            overall_goal: The high-level goal for context
+            breadcrumbs: History of completed steps
+            
+        Returns:
+            Dict with step execution results
+        """
+        try:
+            print(f"📊 Executing observation step: {step_description}")
+            
+            # Get current page HTML using the browser controller's method
+            html_content, page_title = await self.web_agent.browser.get_current_dom()
+            
+            # Use DOM processor functions to find relevant information
+            from .dom_processor import summarize_interactive_elements
+            
+            # Process DOM to find elements relevant to the observation task
+            elements = summarize_interactive_elements(html_content, goal=step_description)
+            
+            # Create observation prompt for LLM analysis
+            observation_prompt = f"""You are analyzing a web page to complete this observation task: "{step_description}"
+
+**Overall Goal:** {overall_goal}
+**Current Step:** {step_number} - {step_description}
+**Previous Progress:** {'; '.join(breadcrumbs[-3:]) if breadcrumbs else 'None'}
+
+**Current Page Elements:**
+{elements}
+
+**Your Task:**
+1. Look through the provided page elements to find information relevant to: "{step_description}"
+2. Extract the specific information requested
+3. Report your findings in a clear, concise format
+4. Focus on actionable information that helps complete the overall goal
+5. If you cannot find the requested information, explain what you searched for and what you found instead
+
+**Response Format:**
+- Start with "OBSERVATION RESULT:" 
+- Provide the specific information found (prices, ingredients, availability, etc.)
+- If reporting prices, quantities, or other data, format it clearly
+- If verifying or confirming something, state clearly whether it was found/confirmed or not
+- Include any relevant details that would help with the overall goal: "{overall_goal}"
+
+**Example Good Responses:**
+- "OBSERVATION RESULT: Found selected product in cart with specified options and customizations. Total price is $12.99."
+- "OBSERVATION RESULT: Confirmed the following items are listed: main product, selected options, chosen add-ons. No additional items found."
+- "OBSERVATION RESULT: Unable to find a clear price display. Found 'Add to Cart' button but no visible pricing information on current page."
+
+Please analyze the page elements and provide your observation result:"""
+
+            try:
+                # Use the external client for LLM analysis
+                response = await asyncio.get_event_loop().run_in_executor(
+                    None, 
+                    self.external_client.query_external_api, 
+                    observation_prompt
+                )
+                
+                print(f"✅ Observation completed: {response}")
+                
+                # Create breadcrumb for this observation
+                breadcrumb = f"Observed: {response[:100]}..." if len(response) > 100 else f"Observed: {response}"
+                
+                # Return success result in same format as web agent
+                return {
+                    "success": True,
+                    "dom_changed": False,  # Observation doesn't change DOM
+                    "final_url": current_url,
+                    "breadcrumb": breadcrumb,
+                    "observation_result": response,
+                    "verification": {"complete": True},
+                    "step_type": "observation"
+                }
+                
+            except Exception as e:
+                print(f"❌ Observation LLM analysis failed: {str(e)}")
+                return {
+                    "success": False,
+                    "dom_changed": False,
+                    "final_url": current_url,
+                    "error": f"Observation analysis error: {str(e)}",
+                    "step_type": "observation"
+                }
+                
+        except Exception as e:
+            print(f"❌ Observation step failed: {str(e)}")
+            return {
+                "success": False,
+                "dom_changed": False,
+                "final_url": current_url,
+                "error": f"Observation error: {str(e)}",
+                "step_type": "observation"
+            }
 
 
 # Backward-compatible function that maintains existing API

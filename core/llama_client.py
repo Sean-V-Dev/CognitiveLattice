@@ -172,7 +172,13 @@ Action Types:
 
 User Request: "{user_query}"
 
-Respond with a JSON object with two keys: "intent" and "action".
+IMPORTANT: Respond with a simple flat JSON object with exactly two keys: "intent" and "action".
+Do NOT use nested objects. Use only the exact values listed above.
+
+Example correct responses:
+{{"intent": "web_automation", "action": "web_navigate"}}
+{{"intent": "task", "action": "plan"}}
+{{"intent": "chat", "action": "chat"}}
 
 JSON Response:[/INST]"""
 
