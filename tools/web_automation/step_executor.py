@@ -65,11 +65,12 @@ class StepOutcome:
 class StepExecutor:
     """Reason over the current page, produce a plan (CommandBatch), execute, return Evidence."""
 
-    def __init__(self, browser_controller, llm_client, safety_manager=None, logger=None):
+    def __init__(self, browser_controller, llm_client, safety_manager=None, logger=None, debug_run_folder=None):
         self.browser = browser_controller
         self.llm = llm_client
         self.safety = safety_manager
         self.logger = logger
+        self.debug_run_folder = debug_run_folder
 
     async def reason_and_act(
         self,
@@ -105,7 +106,7 @@ class StepExecutor:
             # ############################################################################# 
             try:
                 import os
-                debug_dir = os.path.join(os.getcwd(), "debug_prompts")
+                debug_dir = self.debug_run_folder if self.debug_run_folder else os.path.join(os.getcwd(), "debug_prompts")
                 os.makedirs(debug_dir, exist_ok=True)
                 
                 from datetime import datetime
@@ -367,7 +368,7 @@ class StepExecutor:
             # Debug: Save fallback prompt and response
             try:
                 import os
-                debug_dir = os.path.join(os.getcwd(), "debug_prompts")
+                debug_dir = self.debug_run_folder if self.debug_run_folder else os.path.join(os.getcwd(), "debug_prompts")
                 os.makedirs(debug_dir, exist_ok=True)
                 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")

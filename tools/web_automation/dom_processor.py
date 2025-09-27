@@ -37,7 +37,7 @@ KEYWORD_BOOST = [
     "pickup", "delivery", "login", "sign in", "apply", "continue as guest",
 ]
 
-INTERACTIVE_TAGS = {"a", "button", "input", "select"}
+INTERACTIVE_TAGS = {"a", "button", "input", "select", "li"}
 INTERACTIVE_ROLES = {
     "button", "link", "dialog", "combobox", "textbox", "menuitem", "option", 
     "tab", "switch", "checkbox", "radio", "menu", "menuitemcheckbox", 
@@ -116,8 +116,17 @@ def page_signature(raw_dom: str) -> str:
     return hashlib.sha256(raw_dom.encode("utf-8")).hexdigest()[:16]
 
 
-def _extract_meaningful_text(raw_text: str, attrs: Dict[str, Any]) -> str:
-    """Extract meaningful text from element, prioritizing data attributes over comprehensive text."""
+def _extract_meaningful_text(raw_text: str, attrs: Dict[str, Any], tag_name: str = "") -> str:
+    """Extract meaningful text from element, with tag-specific prioritization."""
+    
+    # For li elements, prioritize visible text over data attributes
+    # This ensures interactive li elements show their actual button text
+    if tag_name == "li":
+        text = _norm_text(raw_text)
+        if text and len(text.strip()) >= 2 and len(text.strip()) <= 50:
+            clean_ratio = len([c for c in text if c.isalnum() or c.isspace()]) / len(text)
+            if clean_ratio > 0.7:
+                return text
     
     # PRIORITY 1: Try data attributes first (these are usually clean and specific)
     data_attrs_to_check = [
@@ -313,8 +322,34 @@ def _extract_goal_keywords(goal: str) -> List[str]:
     return keywords
 
 
+def is_clickable_element(tag: str, attrs: Dict[str, str], text: str, goal: str = "") -> bool:
+    """Determine if an element (div/span/li) is likely clickable based on attributes and content."""
+    
+    # Special handling for li elements
+    if tag == "li":
+        # Li with role="link" or role="button" is definitely clickable
+        if attrs.get("role") in ["button", "link", "menuitem"]:
+            return True
+        # Li with data-button attribute (like your remove button)
+        if attrs.get("data-button"):
+            return True
+        # Li with tabindex (indicating keyboard navigation)
+        if "tabindex" in attrs and attrs["tabindex"] != "-1":
+            return True
+        # Li with onclick handler
+        if attrs.get("onclick"):
+            return True
+    
+    # Continue with existing logic for all element types
+    return _is_clickable_element_base(attrs, text, goal)
+
 def is_clickable_div(attrs: Dict[str, str], text: str, goal: str = "") -> bool:
     """Determine if a div/span is likely clickable based on attributes and content."""
+    # Keep existing function for backward compatibility
+    return _is_clickable_element_base(attrs, text, goal)
+
+def _is_clickable_element_base(attrs: Dict[str, str], text: str, goal: str = "") -> bool:
+    """Base clickable detection logic shared by is_clickable_element and is_clickable_div."""
     # Priority 1: Check for ANY data- attribute (often indicates interactivity)
     has_data_attr = any(k.startswith('data-') for k in attrs.keys())
     if has_data_attr and len(text.strip()) > 0:
@@ -463,7 +498,7 @@ def find_deepest_interactive_element(html_chunk: str, goal: str = "") -> List[El
                 
                 elements.append(Element(
                     tag='div',
-                    text=_extract_meaningful_text(text, attrs),
+                    text=_extract_meaningful_text(text, attrs, 'div'),
                     attrs=filtered_attrs,
                     selectors=_candidate_selectors('div', attrs, text)
                 ))
@@ -485,7 +520,7 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                 for elem in tree.cssselect(tag_name):
                     attrs = dict(elem.attrib)  # Clean dict, no BS4 list issues
                     raw_text = elem.text_content().strip() or ""  # Like BS4 get_text
-                    text = _extract_meaningful_text(raw_text, attrs)
+                    text = _extract_meaningful_text(raw_text, attrs, tag_name)
                     selectors = _candidate_selectors(tag_name, attrs, text)
                     
                     # Same relevant attrs as before
@@ -514,7 +549,7 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                 
                 attrs_dict = dict(elem.attrib)
                 raw_text = elem.text_content().strip() or ""
-                text = _extract_meaningful_text(raw_text, attrs_dict)
+                text = _extract_meaningful_text(raw_text, attrs_dict, elem.tag)
 
                 if is_clickable_div(attrs_dict, text, goal):
                     selectors = _candidate_selectors(elem.tag, attrs_dict, text)
@@ -615,14 +650,40 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
                     return elements
                 _add_clickable(elem)
 
-            # 2c) CATCH-ALL PASS: Check all remaining divs/spans with is_clickable_div
-            # This ensures we don't miss elements that don't match the hardcoded XPath patterns
-            # but would be detected by the goal-aware is_clickable_div function
-            catch_all_divs = tree.xpath("//div | //span")
-            for elem in catch_all_divs:
+            # 2c) INTERACTIVE LIST ITEMS: li elements with roles or data attributes
+            interactive_list_items = tree.xpath(
+                "//li["
+                    "@role='button' or @role='link' or @role='menuitem' or "
+                    "@onclick or @data-button or @data-qa-item-name or "
+                    "(@tabindex and not(@tabindex='-1')) or "
+                    "contains(concat(' ',normalize-space(@class),' '),' btn ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' button ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' clickable ') or "
+                    "contains(concat(' ',normalize-space(@class),' '),' menu-item ') or "
+                    ".//button or .//a[@href or @role='button']"
+                "]"
+                "["
+                  "string-length(normalize-space(.)) > 0"
+                "]"
+            )
+            for elem in interactive_list_items:
                 if len(elements) >= max_items:
                     return elements
                 _add_clickable(elem)
+
+            # 2d) CATCH-ALL PASS: Check all remaining divs/spans/li with enhanced clickable detection
+            # This ensures we don't miss elements that don't match the hardcoded XPath patterns
+            # but would be detected by the goal-aware clickable detection functions
+            catch_all_elements = tree.xpath("//div | //span | //li")
+            for elem in catch_all_elements:
+                if len(elements) >= max_items:
+                    return elements
+                # Use enhanced detection that handles li elements specifically
+                tag_name = elem.tag.lower()
+                attrs_dict = dict(elem.attrib)
+                text = (elem.text or "").strip()
+                if is_clickable_element(tag_name, attrs_dict, text, goal):
+                    _add_clickable(elem)
 
             return elements
 
@@ -644,7 +705,7 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
         tag = m.group(1).lower()
         attrs = _extract_attrs(m.group(2))
         raw_text = re.sub(r"<[^>]+>", " ", m.group(3))
-        text = _extract_meaningful_text(raw_text, attrs)
+        text = _extract_meaningful_text(raw_text, attrs, tag)
         selectors = _candidate_selectors(tag, attrs, text)
         
         # Include relevant attributes and any data-* attributes
@@ -702,7 +763,7 @@ def summarize_interactive_elements(html_content: str, max_items: int = INTERACTI
             tag = m.group(1).lower()
             attrs = _extract_attrs(m.group(2))
             raw_text = re.sub(r"<[^>]+>", " ", m.group(3))
-            text = _extract_meaningful_text(raw_text, attrs)
+            text = _extract_meaningful_text(raw_text, attrs, tag)
             
             if is_clickable_div(attrs, text, goal):
                 selectors = _candidate_selectors(tag, attrs, text)
@@ -913,89 +974,93 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
 
         element.score = max(0.0, score)  # Ensure non-negative
     
-    # GOAL-AWARE POST-PROCESSING: Apply additional goal-specific boosts and re-sort
-    goal_lower = goal.lower()
-    print(f"🎯 Goal-aware processing for: '{goal}'")
-    
-    # Menu selection goals (like "Select 'Bowl'")
-    has_select_keyword = any(keyword in goal_lower for keyword in ["select", "choose", "pick"])
-    has_food_keyword = any(food_type in goal_lower for food_type in ["bowl", "burrito", "taco", "salad", "quesadilla"])
-    print(f"🎯 Has select keyword: {has_select_keyword}, Has food keyword: {has_food_keyword}")
-    
-    if has_select_keyword and has_food_keyword:
-        print(f"🍽️ DETECTED MENU SELECTION GOAL!")
-        menu_boosted = 0
-        for element in elements:
-            text = element.text.lower()
-            attrs = element.attrs
-            classes = _safe_get_class_string(attrs).lower()
-            
-            # Extract the specific food item from goal (e.g., "bowl" from "Select 'Bowl'")
-            goal_food_items = []
-            for food_type in ["bowl", "burrito", "taco", "salad", "quesadilla", "chips", "drink", "kids meal"]:
-                if food_type in goal_lower:
-                    goal_food_items.append(food_type)
-            
-            print(f"🍽️ Goal food items: {goal_food_items}")
-            
-            # MASSIVE boost for exact menu item matches
-            for food_item in goal_food_items:
-                if food_item in text or f"{food_item}" in text:
-                    original_score = element.score
-                    element.score = original_score + 6.0  # Massive boost for menu items
-                    menu_boosted += 1
-                    print(f"🍽️ MENU BOOST: '{element.text}' got +6.0 for '{food_item}' match")
-            
-            # Additional boost for menu-related classes/attributes
-            menu_indicators = ["menu", "top-level-menu", "meal", "item", "card"]
-            if any(indicator in classes for indicator in menu_indicators) and any(food_item in text for food_item in goal_food_items):
-                element.score += 2.0  # Additional boost for menu containers
-                menu_boosted += 1
-        
-        if menu_boosted > 0:
-            print(f"🍽️ Menu goal detected: Boosted {menu_boosted} menu elements")
-            # Re-sort after boosting scores
-            elements.sort(key=lambda x: x.score, reverse=True)
-    
-    # Location selection goals
-    elif any(keyword in goal_lower for keyword in ["select", "choose", "pick", "nearest"]) and \
-         any(keyword in goal_lower for keyword in ["location", "restaurant", "store"]):
-        location_boosted = 0
-        for element in elements:
-            text = element.text.lower()
-            attrs = element.attrs
-            classes = _safe_get_class_string(attrs).lower()
-            
-            # PRIORITY 1: Boost location/store container elements (most clickable)
-            location_attrs = [
-                "data-qa-restaurant-id", "data-store-id", "data-location-id", 
-                "data-shop-id", "data-venue-id", "data-place-id"
-            ]
-            
-            has_location_attr = any(attrs.get(attr) for attr in location_attrs)
-            has_location_class = any(container_class in classes 
-                                   for container_class in ['restaurant-address-item', 'location-item', 
-                                                          'store-item', 'store-card', 'location-card', 'venue-item'])
-            
-            if has_location_attr or has_location_class:
-                original_score = element.score
-                element.score = original_score + 8.0  # Highest boost for containers
-                location_boosted += 1
-            
-            # PRIORITY 2: Boost location/address elements (for context, but lower than containers)
-            elif (element.attrs.get("role") == "definition" and 
-                  any(loc_word in text for loc_word in ['near', 'mile', 'mi', 'km', 'street', 'road', 'avenue', 'boulevard', 'drive', 'lane', 'way'])) or \
-                 any(loc_class in classes for loc_class in ['address', 'location', 'result', 'store', 'restaurant']) or \
-                 any(distance in text for distance in ['mile', 'mi', 'km', 'away']):
-                
-                original_score = element.score
-                element.score = original_score + 4.0  # Lower boost for text elements
-                location_boosted += 1
-        
-        if location_boosted > 0:
-            #print(f"🎯 Location goal detected: Boosted {location_boosted} location elements")
-            # Re-sort after boosting scores
-            elements.sort(key=lambda x: x.score, reverse=True)
+    # REMOVED: Site-specific goal-aware post-processing (redundant with compound boost system)
+    # The compound boost system above already extracts keywords from goals and applies
+    # generic boosts to matching elements, making hardcoded food/location logic unnecessary.
+    #
+    # # GOAL-AWARE POST-PROCESSING: Apply additional goal-specific boosts and re-sort
+    # goal_lower = goal.lower()
+    # print(f"🎯 Goal-aware processing for: '{goal}'")
+    # 
+    # # Menu selection goals (like "Select 'Bowl'")
+    # has_select_keyword = any(keyword in goal_lower for keyword in ["select", "choose", "pick"])
+    # has_food_keyword = any(food_type in goal_lower for food_type in ["bowl", "burrito", "taco", "salad", "quesadilla"])
+    # print(f"🎯 Has select keyword: {has_select_keyword}, Has food keyword: {has_food_keyword}")
+    # 
+    # if has_select_keyword and has_food_keyword:
+    #     print(f"🍽️ DETECTED MENU SELECTION GOAL!")
+    #     menu_boosted = 0
+    #     for element in elements:
+    #         text = element.text.lower()
+    #         attrs = element.attrs
+    #         classes = _safe_get_class_string(attrs).lower()
+    #         
+    #         # Extract the specific food item from goal (e.g., "bowl" from "Select 'Bowl'")
+    #         goal_food_items = []
+    #         for food_type in ["bowl", "burrito", "taco", "salad", "quesadilla", "chips", "drink", "kids meal"]:
+    #             if food_type in goal_lower:
+    #                 goal_food_items.append(food_type)
+    #         
+    #         print(f"🍽️ Goal food items: {goal_food_items}")
+    #         
+    #         # MASSIVE boost for exact menu item matches
+    #         for food_item in goal_food_items:
+    #             if food_item in text or f"{food_item}" in text:
+    #                 original_score = element.score
+    #                 element.score = original_score + 6.0  # Massive boost for menu items
+    #                 menu_boosted += 1
+    #                 print(f"🍽️ MENU BOOST: '{element.text}' got +6.0 for '{food_item}' match")
+    #         
+    #         # Additional boost for menu-related classes/attributes
+    #         menu_indicators = ["menu", "top-level-menu", "meal", "item", "card"]
+    #         if any(indicator in classes for indicator in menu_indicators) and any(food_item in text for food_item in goal_food_items):
+    #             element.score += 2.0  # Additional boost for menu containers
+    #             menu_boosted += 1
+    #     
+    #     if menu_boosted > 0:
+    #         print(f"🍽️ Menu goal detected: Boosted {menu_boosted} menu elements")
+    #         # Re-sort after boosting scores
+    #         elements.sort(key=lambda x: x.score, reverse=True)
+    # 
+    # # Location selection goals
+    # elif any(keyword in goal_lower for keyword in ["select", "choose", "pick", "nearest"]) and \
+    #      any(keyword in goal_lower for keyword in ["location", "restaurant", "store"]):
+    #     location_boosted = 0
+    #     for element in elements:
+    #         text = element.text.lower()
+    #         attrs = element.attrs
+    #         classes = _safe_get_class_string(attrs).lower()
+    #         
+    #         # PRIORITY 1: Boost location/store container elements (most clickable)
+    #         location_attrs = [
+    #             "data-qa-restaurant-id", "data-store-id", "data-location-id", 
+    #             "data-shop-id", "data-venue-id", "data-place-id"
+    #         ]
+    #         
+    #         has_location_attr = any(attrs.get(attr) for attr in location_attrs)
+    #         has_location_class = any(container_class in classes 
+    #                                for container_class in ['restaurant-address-item', 'location-item', 
+    #                                                       'store-item', 'store-card', 'location-card', 'venue-item'])
+    #         
+    #         if has_location_attr or has_location_class:
+    #             original_score = element.score
+    #             element.score = original_score + 8.0  # Highest boost for containers
+    #             location_boosted += 1
+    #         
+    #         # PRIORITY 2: Boost location/address elements (for context, but lower than containers)
+    #         elif (element.attrs.get("role") == "definition" and 
+    #               any(loc_word in text for loc_word in ['near', 'mile', 'mi', 'km', 'street', 'road', 'avenue', 'boulevard', 'drive', 'lane', 'way'])) or \
+    #              any(loc_class in classes for loc_class in ['address', 'location', 'result', 'store', 'restaurant']) or \
+    #              any(distance in text for distance in ['mile', 'mi', 'km', 'away']):
+    #             
+    #             original_score = element.score
+    #             element.score = original_score + 4.0  # Lower boost for text elements
+    #             location_boosted += 1
+    #     
+    #     if location_boosted > 0:
+    #         #print(f"🎯 Location goal detected: Boosted {location_boosted} location elements")
+    #         # Re-sort after boosting scores
+    #         elements.sort(key=lambda x: x.score, reverse=True)
     
     # Sort by score (highest first) and limit to max items
     ranked = sorted(elements, key=lambda e: e.score, reverse=True)
@@ -1004,7 +1069,7 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
 
 async def create_page_context(page, goal: str = "", step_number: int = 1, total_steps: int = 1, 
                             recent_events: List[Dict] = None, lattice_state: Dict = None,
-                            previous_dom_signature: str = "") -> PageContext:
+                            previous_dom_signature: str = "", debug_run_folder: str = None) -> PageContext:
     """Enhanced context creation with two-pass approach: extract elements from FULL DOM, then compress."""
     
     # PASS 1: Get the FULL DOM and extract ALL interactive elements before any compression
@@ -1050,7 +1115,8 @@ async def create_page_context(page, goal: str = "", step_number: int = 1, total_
 def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "", 
                            step_number: int = 1, total_steps: int = 1, 
                            overall_goal: str = "", recent_events: List[Dict] = None,
-                           previous_signature: str = "", lattice_state: Dict = None) -> PageContext:
+                           previous_signature: str = "", lattice_state: Dict = None, 
+                           debug_run_folder: str = None) -> PageContext:
     """
     Synchronous wrapper for create_page_context that uses two-pass approach:
     1. Extract elements from FULL DOM
@@ -1098,7 +1164,12 @@ def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "",
         print(f"  {i+1}. <{elem.tag}> type='{input_type}' placeholder='{placeholder}' score={getattr(elem, 'score', 'N/A')}")
     
     # Save debug output
-    debug_file = f"debug_prompts/dom_debug_step{step_number}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.txt"
+    if debug_run_folder:
+        debug_file = os.path.join(debug_run_folder, f"dom_debug_step{step_number}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.txt")
+    else:
+        debug_file = f"debug_prompts/dom_debug_step{step_number}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.txt"
+    
+    os.makedirs(os.path.dirname(debug_file), exist_ok=True)
     with open(debug_file, 'w', encoding='utf-8') as f:
         f.write(f"DOM Debug Report - Step {step_number}\n")
         f.write(f"={'='*50}\n\n")
@@ -1107,20 +1178,42 @@ def create_page_context_sync(url: str, title: str, raw_dom: str, goal: str = "",
         f.write(f"Raw DOM Length: {len(raw_dom)} chars\n\n")
         
         f.write(f"All Interactive Elements ({len(scored_elements)}):\n")
-        f.write("-" * 30 + "\n")
+        f.write("-" * 50 + "\n")
         for i, elem in enumerate(scored_elements):
-            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}'\n")
+            selectors = getattr(elem, 'selectors', [])
+            selector_info = f" selectors={selectors[:3]}" if selectors else " selectors=[]"
+            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs}{selector_info}\n")
+            f.write(f"     text: '{elem.text[:200]}'\n")
+            if hasattr(elem, 'score'):
+                f.write(f"     score: {elem.score}\n")
+            f.write("\n")
         
         f.write(f"\nInput/Textarea Elements ({len(input_elements)}):\n")
-        f.write("-" * 30 + "\n")
+        f.write("-" * 50 + "\n")
         for i, elem in enumerate(input_elements):
-            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs} text='{elem.text[:100]}'\n")
+            selectors = getattr(elem, 'selectors', [])
+            selector_info = f" selectors={selectors[:3]}" if selectors else " selectors=[]"
+            f.write(f"{i+1:3d}. <{elem.tag}> {elem.attrs}{selector_info}\n")
+            f.write(f"     text: '{elem.text[:200]}'\n")
+            if hasattr(elem, 'score'):
+                f.write(f"     score: {elem.score}\n")
+            f.write("\n")
         
-        f.write(f"\nScored Elements ({len(scored_elements)}):\n")
-        f.write("-" * 30 + "\n")
-        for i, elem in enumerate(scored_elements):
+        f.write(f"\nTop 20 Scored Elements (Ranked by AI Selection Priority):\n")
+        f.write("-" * 50 + "\n")
+        f.write("This shows exactly what elements the AI system had to choose from,\n")
+        f.write("ranked by relevance score. The progressive disclosure system starts\n")
+        f.write("with top 10, then expands to 20, 30, 40, 50 if needed.\n\n")
+        for i, elem in enumerate(scored_elements[:20]):
             score = getattr(elem, 'score', 'N/A')
-            f.write(f"{i+1:3d}. <{elem.tag}> score={score} {elem.attrs} text='{elem.text[:100]}'\n")
+            selectors = getattr(elem, 'selectors', [])
+            primary_selector = selectors[0] if selectors else "No selector"
+            f.write(f"RANK {i+1:2d}: score={score:>6} <{elem.tag}> {primary_selector}\n")
+            f.write(f"        attrs: {elem.attrs}\n")
+            f.write(f"        text: '{elem.text[:150]}'\n")
+            if len(selectors) > 1:
+                f.write(f"        alt selectors: {selectors[1:3]}\n")
+            f.write("\n")
     
     print(f"🔍 DOM DEBUG: Full debug report saved: {debug_file}")
     

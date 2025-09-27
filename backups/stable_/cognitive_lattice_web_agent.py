@@ -800,45 +800,78 @@ class CognitiveLatticeWebAgent:
             return {"plan": step_context.get("next_action", "complete"), "context": step_context, "continuing_task": True}
 
         # This prompt teaches the AI HOW to think, instead of WHAT to think.
-        plan_prompt = f"""
-You are an expert autonomous web agent. Your task is to create a concise, step-by-step plan to achieve the user's high-level goal.
+        prompt = f"""You are an expert autonomous web agent. You need to create a step-by-step plan that YOU will execute later, one step at a time.
+
+**IMPORTANT CONTEXT:** 
+You are creating this plan for YOURSELF to follow. Each step will be fed back to you individually as a discrete goal. You will only see one step at a time when executing, so each step must be:
+- Self-contained and completable without seeing other steps
+- Clear enough that you can execute it with only DOM elements visible
+- Specific about what to click/select/type
 
 **User's Goal:** "{high_level_goal}"
 **Target Website:** "{target_url}"
 
-**Your Current Progress (Cognitive Lattice):**
-{self._build_lattice_context()}
+**Your Current Progress:** {self._build_lattice_context()}
 
-**Instructions for Creating the Plan:**
-1. **Review Your Progress:** First, examine your cognitive lattice to see what has already been accomplished. Don't repeat actions that have already been successfully completed.
-2. **Analyze the User's Goal:** Break down the user's request into its core components.
-3. **General Website Heuristics:** Always assume the first step is to navigate to the URL and handle any initial pop-ups (like cookie banners).
-4. **Logical Steps:** Think step-by-step. What is the most logical sequence of actions a human would take?
-5. **Avoid Redundancy:** Each step should be distinctly different. Don't create steps that would repeat the same action or accomplish something already shown as completed in your lattice.
-6. **Describe Actions, Not Code:** Phrase each step as a high-level goal (e.g., "Find the search bar and enter the zip code") rather than a specific command (e.g., "Click the div with id='search'").
-7. **Be Specific:** If the user mentions specific data (like ZIP codes, items, names), include them in the plan steps.
+**CRITICAL PLANNING RULES:**
 
-**Output Format:**
-Return a JSON object with a single key "plan" containing a list of simple, actionable goal strings.
+1. **Always Start with Basic Navigation:** The very first step must ALWAYS be simple navigation to the target URL
+   - REQUIRED first step format: "Navigate to [target_url]"
+   - Keep it simple - just get to the website first, handle pop-ups/banners as needed
+   - Do NOT combine this with any other navigation instructions - It is crucial to get to the website first before any other actions so that the DOM can be analyzed.
 
-**Example for a location search goal:**
+2. **Think Like Future You:** Write each step as if you're instructing yourself with no other context except the DOM
+   - BAD: "Continue building the bowl" (ambiguous - what's next?)
+   - GOOD: "Select white rice as the rice option" (clear action)
+
+3. **Container Before Contents:** For building/customizing, select the base item first
+   - GOOD: "Select the bowl option" → "Choose chicken as protein" (proper sequence)
+   - NOT: "Build a bowl with chicken" (combines two distinct DOM interactions)
+
+4. **One DOM Interaction Per Step:** Each step should map to exactly ONE action:
+   - Clicking one element
+   - Typing in one field
+   - Selecting one option
+   - Observing one piece of information
+
+5. **Assume No Memory Between Steps:** When you execute step 5, you won't remember what step 4 was
+   - Include necessary context IN the step: "Click the 'Add to Bag' button to add the bowl to cart"
+   - NOT just: "Click the button" (which button?)
+
+6. **Observable Elements Only:** Write steps based on what you'll see in the DOM
+   - GOOD: "Click the remove item button"
+   - BAD: "Clean up the cart" (not a DOM element)
+
+**Planning Process:**
+1. Break the user's goal into discrete, observable DOM interactions
+2. Order them logically in a way that you can follow step-by-step at a later time. The list is *not* for a human, it is for you to follow in the future.
+3. Ensure each step gives you enough context to find the right element
+4. Include verification/observation as separate steps when requested
+
+**Output Format:** 
+Return JSON with a "plan" key containing your step-by-step instructions to yourself.
+
+**Example - You instructing yourself for a food order:**
 {{
     "plan": [
-        "Navigate to the website and dismiss any initial pop-ups.",
-        "Look for a 'Find Locations' or 'Store Locator' feature and click it.",
-        "Enter the zip code {high_level_goal.split('ZIP code')[-1].split(',')[0].strip() if 'ZIP code' in high_level_goal else '45305'} to search for nearby locations.",
-        "Select the first available location from the search results."
+        "Navigate to chipotle.com",                       // REQUIRED simple first step
+        "Navigate to the menu section of the website.",  // Then navigate within the site
+        "Select the bowl option as the meal type.",       // Specific element to find and click
+        "Choose chicken as the protein ingredient.",      // Clear what to look for in DOM
+        "Select white rice as the rice option.",          // Specific enough to find element
+        "Click the 'Add to Bag' button.",                // Identifies exact button by text
+        "Enter 'Sean' in the meal name field.",          // Clear data entry instruction
+        "Verify chicken, rice, beans appear in cart.",   // Observable verification
+        "Find and report the total price.",              // Clear observation task
+        "Click the remove item button."                  // Specific action
     ]
-}}
-
-**Important: Use your cognitive lattice to avoid creating redundant steps. If your lattice shows you've already entered a ZIP code successfully, don't create another step to enter it again. Let the complexity of the goal and what remains to be accomplished determine the number of steps needed.**
-"""
+}}"""
         
         print(f"🧠 Asking LLM to create a dynamic plan for: '{high_level_goal}'")
         
         if self.external_client:
             try:
-                plan_response = self.external_client.query_external_api(plan_prompt)
+                plan_response = self.external_client.query_external_api(prompt)
                 json_match = re.search(r'\{.*\}', plan_response, re.DOTALL)
                 if json_match:
                     plan_json_str = json_match.group(0)

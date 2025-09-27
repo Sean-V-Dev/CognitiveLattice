@@ -13,16 +13,17 @@ from .dom_processor import create_page_context_sync as create_page_context, page
 from .prompt_builder import build_reasoning_prompt
 
 class SimpleWebAgent:
-    def __init__(self, browser, lattice, llm_client, policy=None, status_callback=None, confirm_callback=None):
+    def __init__(self, browser, lattice, llm_client, policy=None, status_callback=None, confirm_callback=None, debug_run_folder=None):
         self.browser = browser
         self.llm_client = llm_client
         self.logger = LatticeLogger(lattice)
        #self.recipes = RecipeCache()  # Future: recipe-based caching
         #self.planner = Planner(self.recipes)  # Future: intelligent planning
-        self.executor = StepExecutor(browser, llm_client, logger=self.logger)
+        self.executor = StepExecutor(browser, llm_client, logger=self.logger, debug_run_folder=debug_run_folder)
         self.safety = SafetyManager(policy)
         self.status_callback = status_callback or (lambda msg: None)   # heartbeat
         self.confirm_callback = confirm_callback or (lambda reasons, summary: True)
+        self.debug_run_folder = debug_run_folder
 
         self._last_heartbeat = 0.0
         self._cumulative_risk = 0
@@ -47,7 +48,7 @@ class SimpleWebAgent:
                 
                 # Get current DOM and create page context
                 raw_dom, title = await self.browser.get_current_dom()
-                ctx = create_page_context(url, title, raw_dom, goal)
+                ctx = create_page_context(url, title, raw_dom, goal, debug_run_folder=self.debug_run_folder)
                 
                 # Build context packet for this step (using correct ContextPacket fields)
                 context_packet = ContextPacket(
@@ -150,7 +151,8 @@ class SimpleWebAgent:
                                     overall_goal=overall_goal or step_goal,
                                     recent_events=recent_events,
                                     previous_signature=previous_signature,
-                                    lattice_state=lattice_state)
+                                    lattice_state=lattice_state,
+                                    debug_run_folder=self.debug_run_folder)
             
             # Add step tracking to context (redundant but ensures compatibility)
             ctx.step_number = step_number
