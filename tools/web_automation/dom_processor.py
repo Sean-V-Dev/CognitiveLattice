@@ -800,9 +800,22 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
         href = (attrs.get("href") or "").lower()
         classes = _safe_get_class_string(attrs).lower()
         
-        # Base score for interactive tag/role
+        # Base score for interactive tag/role with STRONG priority for truly interactive elements
         if element.tag in INTERACTIVE_TAGS: 
-            score += 1.0
+            # PRIORITY BOOST: True interactive elements get massive base boost
+            if element.tag == "a" and attrs.get("href"):
+                score += 5.0  # Massive boost for actual links
+            elif element.tag == "button":
+                score += 4.0  # Big boost for buttons
+            elif element.tag == "input":
+                score += 3.0  # Good boost for inputs
+            elif element.tag == "select":
+                score += 3.0  # Good boost for selects
+            elif element.tag == "li" and (attrs.get("role") in ["button", "menuitem"] or attrs.get("onclick") or attrs.get("data-button")):
+                score += 2.5  # Good boost for interactive li elements
+            else:
+                score += 1.0  # Standard boost for other interactive tags
+                
         if roles in INTERACTIVE_ROLES: 
             score += 0.5
 
@@ -855,7 +868,11 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
             location_input_keywords = ["zip", "postal", "address", "location", "city", "state"]
             for lk in location_input_keywords:
                 if lk in placeholder or lk in aria or lk in name:
-                    score += 2.0  # MAJOR boost for location inputs
+                    # MASSIVE boost for location inputs - they should rank highest for location goals
+                    if wants_location:
+                        score += 8.0  # MASSIVE boost when goal wants location
+                    else:
+                        score += 2.0  # Regular boost otherwise
                     
             # Boost for text inputs (where you can type)
             input_type = (attrs.get("type") or "").lower()
@@ -867,7 +884,25 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
             # Use the same is_clickable_div logic from element extraction
             attrs_dict = {k: v for k, v in element.attrs.items()}  # Convert to dict if needed
             if is_clickable_div(attrs_dict, element.text, goal):
-                score += 1.2  # Good boost for clickable divs ONLY
+                # PENALTY: Divs/spans that are just text containers shouldn't beat real interactive elements
+                # Only give boost if they have clear interactive indicators
+                has_strong_interactive_signals = (
+                    attrs.get("onclick") or 
+                    attrs.get("role") in ["button", "menuitem", "option", "tab"] or
+                    (attrs.get("tabindex") and attrs.get("tabindex") != "-1") or
+                    any(attr.startswith("data-qa-") for attr in attrs.keys()) or
+                    "btn" in classes or "button" in classes
+                )
+                
+                if has_strong_interactive_signals:
+                    score += 1.2  # Good boost for truly interactive divs
+                else:
+                    score += 0.3  # Small boost for divs that might be clickable but lack strong signals
+                    # Additional penalty if this looks like a text container with multiple navigation words
+                    nav_words_in_text = sum(1 for word in ["menu", "catering", "rewards", "values", "nutrition"] 
+                                          if word in text.lower())
+                    if nav_words_in_text >= 3:
+                        score -= 1.0  # Penalty for navigation bar containers
                 
         # Location-related keywords for buttons/links
         location_keywords = ["find location", "store locator", "enter zip"]
@@ -904,6 +939,13 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
             score += 0.3
         if "btn" in classes or "button" in classes: 
             score += 0.5
+            
+        # NAVIGATION BOOST: Links with page section hrefs (like #menu, #about, etc.)
+        if element.tag == "a" and href:
+            if href.startswith("#") and len(href) > 1:  # Page section links like #menu
+                score += 2.0  # Big boost for internal navigation links
+            elif any(nav_word in href for nav_word in ["menu", "order", "location", "store"]):
+                score += 1.5  # Good boost for navigation-related links
 
         # COMPOUND SCORING: Extract goal keywords and apply massive boosts
         goal_keywords = []

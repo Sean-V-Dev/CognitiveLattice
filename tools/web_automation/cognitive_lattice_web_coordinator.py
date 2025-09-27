@@ -233,6 +233,11 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
             await self.web_agent.browser.initialize()
             await self.web_agent.browser.navigate(url)
             
+            # Additional wait for page to fully stabilize before starting automation
+            print("⏳ Waiting for page to fully load and stabilize...")
+            import asyncio
+            await asyncio.sleep(2)  # Give the page extra time to fully load
+            
             for step_num, step_description in enumerate(web_steps, 1):
                 print(f"\n🎯 Executing Step {step_num}/{len(web_steps)}: {step_description}")
                 

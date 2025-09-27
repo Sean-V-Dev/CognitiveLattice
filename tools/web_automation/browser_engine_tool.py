@@ -622,6 +622,9 @@ class BrowserEngineTool:
         
         try:
             # Use .first for better handling of compound selectors that may match multiple elements
+            # Wait for element to be available and stable before clicking
+            await self.page.wait_for_selector(selector, timeout=timeout)
+            
             locator = self.page.locator(selector).first
             await locator.scroll_into_view_if_needed()
             await locator.click(timeout=timeout)

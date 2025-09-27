@@ -33,14 +33,14 @@ class BrowserController:
         if not self._engine.page:
             raise RuntimeError("Browser not initialized")
         
-        # Wait for dynamic content to load (1.5 seconds max - reduced for faster testing)
+        # Wait for dynamic content to load (increased timeout for slower websites)
         try:
             await self._engine.page.wait_for_selector('[data-qa-group-name]', timeout=1500)  # 1.5s for bowl elements
         except:
             # If selector not found, continue anyway (don't fail the whole operation)
             pass
         
-        # Wait for network to be idle (1.5 seconds max - reduced for faster testing)
+        # Wait for network to be idle (increased timeout for slower websites)
         try:
             await self._engine.page.wait_for_load_state('networkidle', timeout=1500)  # 1.5s for AJAX completion
         except:
