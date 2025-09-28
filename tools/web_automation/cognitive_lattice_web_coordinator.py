@@ -333,7 +333,7 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                     # Also save lattice state to run folder for audit trail
                     try:
                         lattice_backup_file = os.path.join(self.debug_run_folder, f"lattice_state_after_step{step_num}.json")
-                        self.lattice.save_to_file(lattice_backup_file)
+                        self.lattice.save(lattice_backup_file)
                         print(f"🗂️ DEBUG: Lattice state saved to {os.path.basename(lattice_backup_file)}")
                     except Exception as lattice_error:
                         print(f"⚠️ DEBUG: Failed to save lattice backup: {lattice_error}")
@@ -428,11 +428,14 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                 except Exception as e:
                     print(f"⚠️ Failed to save interactive session: {e}")
                 
+                # Get step completion info BEFORE completing task (which clears active_task)
+                step_completion_info = {"completed_steps": successful_steps, "total_steps": len(web_steps)}
+                
                 # Mark task as completed if it was successful
                 if overall_success and hasattr(self.lattice, 'complete_current_task'):
                     self.lattice.complete_current_task()
             
-            return overall_success
+            return overall_success, step_completion_info
             
         except Exception as e:
             if self.lattice:
@@ -451,7 +454,7 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
             print(f"❌ Web task execution failed: {e}")
             import traceback
             traceback.print_exc()
-            return False
+            return False, {"completed_steps": 0, "total_steps": 0}
     
     def _status_callback(self, message: str) -> None:
         """Handle status updates from the web agent."""
@@ -944,13 +947,17 @@ async def execute_cognitive_web_task(goal: str, url: str, external_client=None, 
     )
     
     # Convert single goal to objectives list for internal API
-    success = await coordinator.execute_web_task(url, [goal])
+    success, step_info = await coordinator.execute_web_task(url, [goal])
     
-    # Return in expected format
+    print(f"🐛 DEBUG - Success: {success}, Step info: {step_info}")
+    
+    # Return in expected format with step information
     return {
         "success": success,
         "goal": goal,
         "url": url,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "completed_steps": step_info["completed_steps"],
+        "total_steps": step_info["total_steps"]
     }
 

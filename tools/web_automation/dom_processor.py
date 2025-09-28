@@ -390,8 +390,9 @@ def _is_clickable_element_base(attrs: Dict[str, str], text: str, goal: str = "")
         # Extract keywords from the goal and check if element text matches
         if goal:
             goal_keywords = _extract_goal_keywords(goal)
-            # Check if any goal keyword appears in the element text
-            if any(keyword in text_lower for keyword in goal_keywords):
+            # Check if any goal keyword appears in the element text (word boundary matching)
+            import re
+            if any(re.search(r'\b' + re.escape(keyword) + r'\b', text_lower) for keyword in goal_keywords):
                 return True
     
     # Priority 6: Menu items with data attributes (e.g., Chipotle menu categories)
@@ -881,6 +882,15 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
                 
         # Enhanced scoring for interactive divs/spans - conditional on clickability
         if element.tag in ["div", "span"]:
+            # SPECIAL CASE: Form container elements should get base boost
+            form_container_classes = ["input-container", "form-group", "field-container", "input-field", "form-control"]
+            is_form_container = any(container_class in classes for container_class in form_container_classes)
+            
+            if is_form_container:
+                score += 2.0  # Base boost for form containers to compete with interactive elements
+                if DEBUG:
+                    print(f"📋 Form container boost: '{text}' got +2.0 for class containing form indicator")
+            
             # Use the same is_clickable_div logic from element extraction
             attrs_dict = {k: v for k, v in element.attrs.items()}  # Convert to dict if needed
             if is_clickable_div(attrs_dict, element.text, goal):
@@ -891,7 +901,8 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
                     attrs.get("role") in ["button", "menuitem", "option", "tab"] or
                     (attrs.get("tabindex") and attrs.get("tabindex") != "-1") or
                     any(attr.startswith("data-qa-") for attr in attrs.keys()) or
-                    "btn" in classes or "button" in classes
+                    "btn" in classes or "button" in classes or
+                    is_form_container  # Form containers are considered strong signals
                 )
                 
                 if has_strong_interactive_signals:
@@ -955,7 +966,8 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
         skip_words = {'the', 'a', 'an', 'to', 'for', 'of', 'in', 'on', 'at', 'by', 'with', 'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'over', 'under', 'between', 'among', 'through', 'during', 'before', 'after', 'above', 'below', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'must', 'shall', 'and', 'or', 'but', 'nor', 'so', 'yet', 'as', 'if', 'then', 'than', 'when', 'where', 'while', 'how', 'why', 'what', 'which', 'who', 'whom', 'whose', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'mine', 'yours', 'his', 'hers', 'ours', 'theirs', 'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves', 'yourselves', 'themselves'}
         
         # ALSO skip action/instruction words that shouldn't match menu items
-        action_words = {'select', 'choose', 'pick', 'click', 'build', 'your', 'own', 'option', 'as', 'type', 'order', 'get', 'go', 'find', 'then', 'me'}
+        # NOTE: Removed 'enter' and 'type' as they're important for form field detection
+        action_words = {'select', 'choose', 'pick', 'click', 'build', 'your', 'own', 'option', 'as', 'order', 'get', 'go', 'find', 'then', 'me'}
         
         # Separate high-priority target words from action words
         target_keywords = []  
@@ -970,9 +982,11 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
                     target_keywords.append(clean_word)
         
         # Count matches with different weights (case insensitive)
+        # Use word boundary matching to avoid false positives like "enter" matching "center"
+        import re
         text_lower = text.lower()
-        target_matches = sum(1 for kw in target_keywords if kw in text_lower)
-        general_matches = sum(1 for kw in general_keywords if kw in text_lower)
+        target_matches = sum(1 for kw in target_keywords if re.search(r'\b' + re.escape(kw) + r'\b', text_lower))
+        general_matches = sum(1 for kw in general_keywords if re.search(r'\b' + re.escape(kw) + r'\b', text_lower))
         
         # Only show debug for elements that actually get keyword matches
         if target_matches > 0 or general_matches > 0:
@@ -1008,11 +1022,35 @@ def score_interactive_elements(elements: List[Element], goal: str) -> List[Eleme
         
         # ENHANCED: Check for multi-word exact matches (like "fajita veggies")
         # This gives even bigger boost when the exact phrase appears
-        goal_phrase = goal_lower.replace("add", "").replace("'", "").replace('"', "").replace("as a topping", "").replace("as", "").strip()
-        if len(goal_phrase.split()) >= 2 and goal_phrase in text.lower():
-            phrase_boost = 5.0  # MASSIVE boost for exact phrase match
-            score += phrase_boost
-            print(f"🔥 PHRASE MATCH: '{text}' got +{phrase_boost:.1f} for exact phrase '{goal_phrase}'")
+        # COMMENTED OUT: Site-specific phrase matching logic
+        # goal_phrase = goal_lower.replace("add", "").replace("'", "").replace('"', "").replace("as a topping", "").replace("as", "").strip()
+        # if len(goal_phrase.split()) >= 2 and goal_phrase in text.lower():
+        #     phrase_boost = 5.0  # MASSIVE boost for exact phrase match
+        #     score += phrase_boost
+        #     print(f"🔥 PHRASE MATCH: '{text}' got +{phrase_boost:.1f} for exact phrase '{goal_phrase}'")
+        
+        # COMMENTED OUT: Form field specific boosting - let generic keyword matching handle this
+        # FORM FIELD DETECTION: Boost elements that look like input prompts or labels
+        # form_prompt_indicators = [
+        #     ("enter", "name"), ("meal", "name"), ("enter", "meal"), 
+        #     ("type", "name"), ("input", "name"), ("name", "field"),
+        #     ("enter", "text"), ("provide", "name")
+        # ]
+        # 
+        # text_words = text_lower.split()
+        # for word1, word2 in form_prompt_indicators:
+        #     if word1 in text_words and word2 in text_words:
+        #         form_boost = 8.0  # MASSIVE boost for form field prompts
+        #         score += form_boost
+        #         print(f"📝 FORM FIELD BOOST: '{text}' got +{form_boost:.1f} for form prompt indicators '{word1}' + '{word2}'")
+        #         break  # Only apply once per element
+        # 
+        # # INPUT CONTAINER BOOST: Elements with class "input-container" or similar
+        # input_container_classes = ["input-container", "form-group", "field-container", "input-field"]
+        # if any(container_class in classes for container_class in input_container_classes):
+        #     container_boost = 5.0  # Big boost for input containers
+        #     score += container_boost
+        #     print(f"📋 INPUT CONTAINER BOOST: '{text}' got +{container_boost:.1f} for input container class")
 
         element.score = max(0.0, score)  # Ensure non-negative
     

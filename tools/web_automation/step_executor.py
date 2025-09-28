@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 import json
+import asyncio
 from datetime import datetime
 
 from .models import PageContext, CommandBatch, Command, Evidence
@@ -140,28 +141,61 @@ class StepExecutor:
                 print(f"⚠️ DEBUG: Failed to save prompt: {debug_error}")
             # ############################################################################# 
             
-            # 2) Ask LLM
-            try:
-                raw_response = self.llm.query_external_api(prompt)
-                
-                # Check if LLM said "NONE" (no suitable candidates)
-                if '"no_match"' in raw_response and '"NONE"' in raw_response:
-                    print(f"🔄 Pass {pass_number}: LLM found no suitable candidates, expanding to pass {pass_number + 1}")
-                    if pass_number == max_passes:
-                        print(f"⚠️ Reached maximum passes ({max_passes}), proceeding with best effort")
-                        # Continue with the "NONE" response to handle gracefully
-                        break
-                    continue  # Try next pass with more candidates
-                
-                # LLM found a candidate, proceed with execution
-                print(f"✅ Pass {pass_number}: LLM selected a candidate")
-                break
-                
-            except Exception as llm_error:
-                print(f"❌ Pass {pass_number}: LLM query failed: {llm_error}")
-                if pass_number == max_passes:
-                    raise  # Re-raise on final pass
-                continue  # Try next pass
+            # 2) Ask LLM with API retry logic
+            api_retry_count = 0
+            max_api_retries = 3
+            
+            while api_retry_count < max_api_retries:
+                try:
+                    raw_response = self.llm.query_external_api(prompt)
+                    
+                    # Check for connection error patterns in response
+                    if ("I apologize, but I'm having trouble connecting" in raw_response or 
+                        "Connection a" in raw_response or 
+                        "Error: ('Connection" in raw_response or
+                        "Could not parse JSON from response: I apologize" in raw_response):
+                        api_retry_count += 1
+                        print(f"🔄 API connection error detected (retry {api_retry_count}/{max_api_retries})")
+                        if api_retry_count < max_api_retries:
+                            await asyncio.sleep(2)  # Wait before retry
+                            continue
+                        else:
+                            print(f"❌ API connection failed after {max_api_retries} retries")
+                            # Continue with failure response to handle gracefully below
+                    
+                    # Check if LLM said "NONE" (no suitable candidates)
+                    if '"no_match"' in raw_response and '"NONE"' in raw_response:
+                        print(f"🔄 Pass {pass_number}: LLM found no suitable candidates, expanding to pass {pass_number + 1}")
+                        if pass_number == max_passes:
+                            print(f"⚠️ Reached maximum passes ({max_passes}), proceeding with best effort")
+                            # Continue with the "NONE" response to handle gracefully
+                            break
+                        break  # Break from API retry loop to continue to next pass
+                    
+                    # LLM found a candidate, proceed with execution
+                    print(f"✅ Pass {pass_number}: LLM selected a candidate")
+                    break  # Success, exit both loops
+                    
+                except Exception as llm_error:
+                    api_retry_count += 1
+                    print(f"❌ Pass {pass_number}: LLM query failed (retry {api_retry_count}/{max_api_retries}): {llm_error}")
+                    if api_retry_count < max_api_retries:
+                        await asyncio.sleep(2)  # Wait before retry
+                        continue
+                    else:
+                        print(f"❌ API failed after {max_api_retries} retries")
+                        if pass_number == max_passes:
+                            raise  # Re-raise on final pass
+                        break  # Move to next pass
+            
+            # If we successfully got a response (even if it's "NONE"), break from pass loop
+            if api_retry_count < max_api_retries or '"no_match"' in raw_response:
+                if '"no_match"' not in raw_response:
+                    break  # Success case
+                elif pass_number < max_passes:
+                    continue  # "NONE" case, try next pass
+                else:
+                    break  # "NONE" on final pass
         
         # Continue with normal execution flow using the final raw_response
         # Handle case where all passes failed
@@ -206,6 +240,41 @@ class StepExecutor:
         print(f"🤖 LLM Raw Response: {raw_response[:200]}...")  # Debug output
         
         # Try to extract JSON from response (in case there's extra text)
+        # But first check if this is an API connection failure that needs retry
+        retry_needed = (
+            "I apologize, but I'm having trouble connecting" in raw_response or 
+            "Connection a" in raw_response or 
+            "Error: ('Connection" in raw_response
+        )
+        
+        if retry_needed:
+            print("🔄 API connection failure detected in response, attempting retries...")
+            retry_count = 0
+            max_retries = 3
+            
+            while retry_count < max_retries:
+                retry_count += 1
+                print(f"🔄 Retry attempt {retry_count}/{max_retries}")
+                
+                try:
+                    await asyncio.sleep(2)  # Wait before retry
+                    raw_response = self.llm.query_external_api(prompt)
+                    
+                    # Check if retry succeeded
+                    if not ("I apologize, but I'm having trouble connecting" in raw_response or 
+                           "Connection a" in raw_response or 
+                           "Error: ('Connection" in raw_response):
+                        print(f"✅ Retry {retry_count} succeeded!")
+                        break
+                    else:
+                        print(f"❌ Retry {retry_count} still has connection issues")
+                        
+                except Exception as retry_error:
+                    print(f"❌ Retry {retry_count} failed: {retry_error}")
+                    
+                if retry_count == max_retries:
+                    print(f"❌ All {max_retries} retries failed, proceeding with fallback")
+        
         try:
             json_start = raw_response.find('{')
             json_end = raw_response.rfind('}') + 1
@@ -337,9 +406,132 @@ class StepExecutor:
         except Exception as e:
             print(f"⚠️ Failed to create DOM diff fallback: {e}")
         
-        # All fallbacks failed, return the original evidence with fallback attempted flag
-        print("❌ All fallback attempts failed, returning original evidence")
+        # All fallbacks failed, but check if action succeeded despite API failure
+        print("❌ All fallback attempts failed, checking for post-execution success...")
+        evidence = await self._verify_action_success_despite_failure(evidence, goal, ctx, initial_batch)
         evidence.fallback_used = True
+        return evidence
+
+    async def _verify_action_success_despite_failure(
+        self, 
+        evidence: Evidence, 
+        goal: str, 
+        ctx: PageContext, 
+        original_batch: CommandBatch
+    ) -> Evidence:
+        """
+        Verify if an action succeeded despite API failures.
+        
+        Key insight: If the DOM changed significantly and contained noop commands 
+        due to API failures, the action might have actually succeeded.
+        """
+        # Check if this was an API failure case (noop commands with DOM changes)
+        has_noop_commands = any(cmd.type == "noop" for cmd in original_batch.commands)
+        dom_changed = evidence.dom_after_sig != ctx.signature if hasattr(ctx, 'signature') else False
+        
+        if not (has_noop_commands and dom_changed):
+            return evidence  # Not an API failure case
+            
+        print("🔍 Potential API failure with DOM changes - verifying actual success...")
+        
+        try:
+            # Get current page context to analyze if goal was achieved
+            current_ctx = await self.browser.get_current_dom()
+            
+            # Create a verification prompt to check if the goal was achieved
+            verification_prompt = f"""
+You are analyzing whether a web automation goal was achieved despite an API connection failure.
+
+**Goal:** {goal}
+
+**Context:** The system experienced an API connection error while trying to execute an action, but the DOM changed significantly. This suggests the user might have manually completed the action or the page updated automatically.
+
+**Current Page Content (key elements only):**
+{current_ctx.ranked_elements[:20] if hasattr(current_ctx, 'ranked_elements') else 'Not available'}
+
+**Instructions:**
+Analyze the current page state and determine if the goal has been achieved. Look for:
+1. Elements mentioned in the goal that are now present/selected
+2. Evidence that the requested action was completed
+3. Clear indicators of success (like items in cart, selections made, etc.)
+
+Respond with JSON:
+{{
+    "achieved": true/false,
+    "confidence": 0.0-1.0,
+    "evidence": "specific evidence from the page that shows success or failure",
+    "reasoning": "brief explanation of your analysis"
+}}
+"""
+            
+            # Query the LLM for verification (with retry logic)
+            api_retry_count = 0
+            max_retries = 2
+            verification_response = None
+            
+            while api_retry_count < max_retries:
+                try:
+                    verification_response = self.llm.query_external_api(verification_prompt)
+                    
+                    # Check for connection errors
+                    if ("I apologize, but I'm having trouble connecting" in verification_response or 
+                        "Connection a" in verification_response):
+                        api_retry_count += 1
+                        if api_retry_count < max_retries:
+                            await asyncio.sleep(1)
+                            continue
+                        else:
+                            print("⚠️ Verification API also failed - keeping original failure status")
+                            return evidence
+                    break
+                    
+                except Exception as e:
+                    api_retry_count += 1
+                    if api_retry_count >= max_retries:
+                        print(f"⚠️ Verification failed: {e}")
+                        return evidence
+                    await asyncio.sleep(1)
+            
+            # Parse verification response
+            if verification_response:
+                try:
+                    json_start = verification_response.find('{')
+                    json_end = verification_response.rfind('}') + 1
+                    
+                    if json_start != -1 and json_end > json_start:
+                        json_str = verification_response[json_start:json_end]
+                        verification_data = json.loads(json_str)
+                        
+                        achieved = verification_data.get('achieved', False)
+                        confidence = verification_data.get('confidence', 0.0)
+                        verification_evidence = verification_data.get('evidence', '')
+                        reasoning = verification_data.get('reasoning', '')
+                        
+                        if achieved and confidence > 0.7:
+                            print(f"✅ POST-VERIFICATION SUCCESS! Goal achieved despite API failure")
+                            print(f"   Evidence: {verification_evidence}")
+                            print(f"   Reasoning: {reasoning}")
+                            
+                            # Update evidence to reflect success
+                            evidence.success = True
+                            evidence.findings['post_verification'] = {
+                                'achieved': True,
+                                'confidence': confidence,
+                                'evidence': verification_evidence,
+                                'reasoning': reasoning,
+                                'recovered_from_api_failure': True
+                            }
+                            # Clear API-related errors
+                            evidence.errors = [e for e in evidence.errors if 'noop' not in e.lower()]
+                        else:
+                            print(f"❌ Post-verification confirmed failure (confidence: {confidence})")
+                            
+                except Exception as parse_error:
+                    print(f"⚠️ Failed to parse verification response: {parse_error}")
+                    
+        except Exception as e:
+            print(f"⚠️ Post-execution verification failed: {e}")
+            
         return evidence
 
     async def _create_fallback_batch_with_full_dom(
