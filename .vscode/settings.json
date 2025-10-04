@@ -1,5 +1,15 @@
 {
+    "python.defaultInterpreterPath": "C:\\Users\\seanv\\anaconda3\\python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.executeInFileDir": true,
+    "python.pythonPath": "C:\\Users\\seanv\\anaconda3\\python.exe",
     "python-envs.defaultEnvManager": "ms-python.python:conda",
     "python-envs.defaultPackageManager": "ms-python.python:conda",
-    "python-envs.pythonProjects": []
+    "python-envs.pythonProjects": [],
+    "python.terminal.launchArgs": [],
+    "python.terminal.focusAfterLaunch": true,
+    "code-runner.runInTerminal": true,
+    "code-runner.executorMap": {
+        "python": "python"
+    }
 }

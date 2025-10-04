@@ -247,3 +247,7 @@ experimental/
 
 # Session files
 cognitive_lattice_interactive_session_*.json
+
+# Test suite documentation (uncompressed)
+# Keep the zip file, but ignore the uncompressed folder (730MB)
+CognitiveLattice_E2E_Acceptance_Suite_Tests/

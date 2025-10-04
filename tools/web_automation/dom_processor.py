@@ -222,7 +222,7 @@ def _extract_attrs(attr_str: str) -> Dict[str, str]:
 def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str]:
     """Generate candidate selectors for an element, prioritizing unique selectors first."""
     
-    def esc(v: str, lim: int = 24) -> str:
+    def esc(v: str, lim: int = 60) -> str:
         """Escape and limit text for safe selector usage."""
         v = (v or "")[:lim].replace('"', r'\"')
         return v
@@ -286,11 +286,27 @@ def _candidate_selectors(tag: str, attrs: Dict[str, str], text: str) -> List[str
     placeholder = attrs.get("placeholder")
     if placeholder:
         sels.append(f"{tag}[placeholder*=\"{esc(placeholder)}\"]")
+    alt = attrs.get("alt")
+    if alt and tag == "img":
+        sels.append(f"img[alt=\"{esc(alt)}\"]")
     href = attrs.get("href")
     if href and tag == "a":
         sels.append(f"a[href*=\"{esc(href, 32)}\"]")
     
-    # PRIORITY 6: Text-based selectors (fallback)
+    # PRIORITY 6: Input field targeting for form containers
+    # If this is a container that suggests input functionality, add input selectors
+    if text and any(phrase in text.lower() for phrase in ['enter', 'type', 'input', 'name', 'search']):
+        if tag in ['div', 'span', 'label']:
+            # Generate selectors to find input fields within this container
+            if attrs.get('class'):
+                main_class = attrs.get('class', '').split()[0]
+                sels.append(f"{tag}.{main_class} input[type='text'], {tag}.{main_class} input")
+                sels.append(f"{tag}.{main_class} input")
+            else:
+                sels.append(f"{tag} input[type='text'], {tag} input")
+                sels.append(f"{tag} input")
+    
+    # PRIORITY 7: Text-based selectors (fallback)
     if text:
         sels.append(f"{tag}:has-text(\"{esc(text, 48)}\")")
     

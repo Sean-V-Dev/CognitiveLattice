@@ -275,7 +275,9 @@ Return a JSON object with a single key "plan" containing a list of simple, actio
                 # Execute this specific step using enhanced context
                 # Check if this is an observation/reporting step
                 observation_keywords = ['look for', 'find and report', 'extract', 'verify', 'confirm', 'check', 'report', 'display', 'show', 'observe']
-                is_observation_step = any(keyword in step_description.lower() for keyword in observation_keywords)
+                # Use word boundary matching to avoid false positives like "confirm" in "confirmation"
+                import re
+                is_observation_step = any(re.search(r'\b' + re.escape(keyword) + r'\b', step_description.lower()) for keyword in observation_keywords)
                 
                 if is_observation_step:
                     print(f"📊 Detected observation step - using DOM analysis approach")

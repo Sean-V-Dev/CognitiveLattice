@@ -629,8 +629,8 @@ class BrowserEngineTool:
             await locator.scroll_into_view_if_needed()
             await locator.click(timeout=timeout)
             
-            # Wait a moment for any resulting page changes (reduced from 1000ms to 500ms)
-            await self.page.wait_for_timeout(500)
+            # Wait a moment for any resulting page changes - increased to 1000ms for better stability
+            await self.page.wait_for_timeout(1500)
             
             return {
                 'status': 'success',
@@ -645,7 +645,7 @@ class BrowserEngineTool:
                 await locator.scroll_into_view_if_needed()
                 await locator.click(timeout=timeout, force=True)
                 
-                await self.page.wait_for_timeout(500)  # Reduced from 1000ms to 500ms
+                await self.page.wait_for_timeout(1000)  # Increased to 1000ms for better stability
                 
                 return {
                     'status': 'success',
@@ -695,6 +695,9 @@ class BrowserEngineTool:
                 await self.page.press(selector, 'Enter')
                 print(f"🔑 Pressed Enter after typing to dismiss autocomplete dropdown")
             
+            # Wait a moment for any resulting page changes after typing
+            await self.page.wait_for_timeout(1500)
+            
             return {
                 'status': 'success',
                 'selector': selector,
@@ -729,6 +732,10 @@ class BrowserEngineTool:
             if delay_ms:
                 await self.page.wait_for_timeout(delay_ms)
             await self.page.keyboard.press(key)
+            
+            # Wait a moment for any resulting page changes after key press
+            await self.page.wait_for_timeout(1500)
+            
             return {
                 'status': 'success',
                 'key': key,
